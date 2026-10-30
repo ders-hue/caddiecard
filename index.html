@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#143629">
+  <title>Scoring App</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="badge" aria-label="Scoring App">SA</div>
+    <div><strong>Scoring App</strong><small>One-off golf rounds</small></div>
+    <button class="icon-button" id="resetApp" aria-label="Start over">↻</button>
+  </header>
+
+  <main>
+    <section class="screen" id="courseScreen">
+      <p class="step">STEP 1 OF 3</p>
+      <h1>Select course</h1>
+      <p class="lead">Photograph a printed scorecard, then check the course details before playing.</p>
+
+      <article class="card scan-card">
+        <input id="scorecardPhoto" type="file" accept="image/*" capture="environment" hidden>
+        <button class="scan-button" id="takePhoto">
+          <span class="camera">▣</span>
+          <span><strong>Scan a scorecard</strong><small>Use your phone camera</small></span>
+        </button>
+        <img id="photoPreview" class="photo-preview hidden" alt="Photographed scorecard">
+        <p id="scanStatus" class="status"></p>
+      </article>
+
+      <article class="card form-card">
+        <div class="two-col">
+          <label>Course name<input id="courseName" autocomplete="off" placeholder="e.g. Moorland Golf Club"></label>
+          <label>Tee<input id="teeName" autocomplete="off" placeholder="e.g. Yellow"></label>
+          <label>Slope rating<input id="slopeRating" type="number" inputmode="numeric" min="55" max="155" value="113"></label>
+          <label>Course rating<input id="courseRating" type="number" inputmode="decimal" min="40" max="90" step="0.1" placeholder="e.g. 70.4"></label>
+        </div>
+        <div class="table-wrap">
+          <table id="courseTable">
+            <thead><tr><th>Hole</th><th>Par</th><th>Stroke index</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="validation" id="courseError"></p>
+        <button class="primary" id="confirmCourse">Use this course</button>
+      </article>
+    </section>
+
+    <section class="screen hidden" id="playersScreen">
+      <p class="step">STEP 2 OF 3</p>
+      <h1>Add players</h1>
+      <p class="lead" id="selectedCourse"></p>
+      <div id="playerRows" class="player-rows"></div>
+      <button class="secondary" id="addPlayer">+ Add player</button>
+      <p class="validation" id="playerError"></p>
+      <div class="bottom-actions"><button class="secondary" id="backToCourse">Back</button><button class="primary" id="startRound">Start round</button></div>
+    </section>
+
+    <section class="screen hidden" id="scoreScreen">
+      <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><button class="secondary compact" id="finishRound">Finish</button></div>
+      <div id="scorePlayers" class="score-players"></div>
+      <nav class="hole-nav"><button class="secondary" id="previousHole">← Previous</button><button class="primary" id="nextHole">Next →</button></nav>
+      <div class="hole-dots" id="holeDots"></div>
+    </section>
+  </main>
+
+  <dialog id="finishDialog">
+    <h2>Finish this round?</h2>
+    <p>This clears the one-off round and its temporary recovery data from this phone.</p>
+    <div class="bottom-actions"><button class="secondary" id="cancelFinish">Keep scoring</button><button class="danger" id="confirmFinish">Clear round</button></div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
