@@ -8,7 +8,7 @@
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=27">
+  <link rel="stylesheet" href="styles.css?v=28">
 </head>
 <body>
   <header class="topbar">
@@ -24,8 +24,8 @@
 
   <main>
     <section class="screen" id="courseScreen">
-      <p class="step">STEP 1 OF 3</p>
-      <h1>Select course</h1>
+      <p class="step">STEP 1 OF 4</p>
+      <h1>Select club</h1>
       <p class="lead">Choose your home or a saved club, or find somewhere different.</p>
 
       <article class="card club-picker">
@@ -43,29 +43,26 @@
             <div id="clubResults" class="choice-list"></div>
           </section>
         </div>
-        <section id="teeSection" class="tee-section hidden">
-          <button id="changeClub" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Change club</span></button>
-          <div class="course-selected-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.7L16.5 9"/></svg><span>Course selected</span></div>
-          <div class="selected-club-heading">
-            <h2 id="selectedClubName"></h2>
-            <div class="club-actions">
-              <button id="toggleHome" class="home-button" type="button" aria-label="Set as home club">
-                <svg viewBox="0 0 32 32" aria-hidden="true"><path class="icon-glow" d="M5 15.2 16 5l11 10.2v11.3H5z"/><path class="icon-line" d="M6.5 14.7 16 6l9.5 8.7v11H6.5zM12.5 25.7v-8.2h7v8.2"/><path class="icon-shine" d="m9 14 7-6.3 4.2 3.8"/></svg>
-              </button>
-              <button id="toggleFavourite" class="star-button" type="button" aria-label="Add club to favourites">
-                <svg viewBox="0 0 32 32" aria-hidden="true"><path class="icon-glow" d="m16 3.2 3.8 8 8.7 1.1-6.4 6 1.7 8.6-7.8-4.3-7.8 4.3 1.7-8.6-6.4-6 8.7-1.1z"/><path class="icon-star" d="m16 5.8 3.1 6.6 7.2.9-5.3 5 1.4 7.1-6.4-3.6-6.4 3.6 1.4-7.1-5.3-5 7.2-.9z"/><path class="icon-shine" d="m12.2 12.9 3.8-5 2 4.4"/></svg>
-              </button>
-            </div>
-          </div>
-          <div class="tee-next-step"><p class="step">NEXT</p><h3>Choose tee markers</h3><p>Select the markers you are playing today.</p></div>
-          <div id="teeChoices" class="choice-list"></div>
-        </section>
       </article>
+    </section>
 
+    <section class="screen hidden" id="teeScreen">
+      <button id="changeClub" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Back</span></button>
+      <p class="step">STEP 2 OF 4</p>
+      <h1>Choose tee markers</h1>
+      <div class="tee-club-context">
+        <div><small>PLAYING AT</small><strong id="selectedClubName"></strong></div>
+        <div class="club-actions">
+          <button id="toggleHome" class="home-button" type="button" aria-label="Set as home club"><svg viewBox="0 0 32 32" aria-hidden="true"><path class="icon-glow" d="M5 15.2 16 5l11 10.2v11.3H5z"/><path class="icon-line" d="M6.5 14.7 16 6l9.5 8.7v11H6.5zM12.5 25.7v-8.2h7v8.2"/><path class="icon-shine" d="m9 14 7-6.3 4.2 3.8"/></svg></button>
+          <button id="toggleFavourite" class="star-button" type="button" aria-label="Add club to favourites"><svg viewBox="0 0 32 32" aria-hidden="true"><path class="icon-glow" d="m16 3.2 3.8 8 8.7 1.1-6.4 6 1.7 8.6-7.8-4.3-7.8 4.3 1.7-8.6-6.4-6 8.7-1.1z"/><path class="icon-star" d="m16 5.8 3.1 6.6 7.2.9-5.3 5 1.4 7.1-6.4-3.6-6.4 3.6 1.4-7.1-5.3-5 7.2-.9z"/><path class="icon-shine" d="m12.2 12.9 3.8-5 2 4.4"/></svg></button>
+        </div>
+      </div>
+      <p class="lead tee-lead">Select the markers you are playing today.</p>
+      <div id="teeChoices" class="choice-list"></div>
     </section>
 
     <section class="screen hidden" id="playersScreen">
-      <p class="step">STEP 2 OF 3</p>
+      <p class="step">STEP 3 OF 4</p>
       <h1>Add players</h1>
       <p class="lead" id="selectedCourse"></p>
       <div id="playerRows" class="player-rows"></div>
@@ -125,6 +122,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=27"></script>
+<script src="app.js?v=28"></script>
 </body>
 </html>

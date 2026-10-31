@@ -10,7 +10,7 @@ function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},
   $('#courseTable tbody').innerHTML=Array.from({length:18},(_,i)=>`<tr><td>${i+1}</td><td><input type="number" inputmode="numeric" min="3" max="6" value="${pars[i]??''}" data-par="${i}" aria-label="Par for hole ${i+1}"></td><td><input type="number" inputmode="numeric" min="1" max="18" value="${indexes[i]??''}" data-si="${i}" aria-label="Stroke index for hole ${i+1}"></td></tr>`).join('');
 }
 
-function showScreen(name){['course','players','score'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name))}
+function showScreen(name){['course','tee','players','score'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name))}
 function coursePar(){return state.course.pars.reduce((a,b)=>a+b,0)}
 function courseHandicap(index){return Math.round(index*(state.course.slope/113)+(state.course.rating-coursePar()))}
 function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(handicap/18)+(strokeIndex<=handicap%18?1:0);const plus=Math.abs(handicap);return -(Math.floor(plus/18)+(strokeIndex<=plus%18?1:0))}
@@ -190,7 +190,7 @@ function renderTeeLoading(){
   $('#teeChoices').innerHTML='<div class="tee-loading" role="status"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17"/><path d="M22 5a17 17 0 0 1 17 17"/></svg><div><strong>Finding tees and scorecards…</strong><small>This usually takes a moment.</small></div></div><div class="tee-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
 }
 function showClubDiscovery(){
-  clubSelectionRequest++;selectedClub=null;$('#courseScreen').classList.remove('tee-mode');$('#teeSection').classList.add('hidden');$('#clubDiscovery').classList.remove('hidden');$('#clubSearch').value='';$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites();$('#clubSearch').focus();
+  clubSelectionRequest++;selectedClub=null;showScreen('course');$('#clubSearch').value='';$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites();$('#clubSearch').focus();
 }
 function updateFavouriteButton(){
   const active=selectedClub&&favourites().some(club=>club.id===selectedClub.id),button=$('#toggleFavourite');
@@ -204,8 +204,7 @@ function normaliseCourses(payload){return Array.isArray(payload)?payload:(payloa
 async function selectClub(id,displayedName){
   const request=++clubSelectionRequest,known=[...favourites()];
   selectedClub={id,name:displayedName?.trim()||known.find(club=>club.id===id)?.name||'Selected golf club'};
-  $('#selectedClubName').textContent=selectedClub.name;$('#courseScreen').classList.add('tee-mode');$('#clubDiscovery').classList.add('hidden');$('#teeSection').classList.remove('hidden');renderTeeLoading();updateFavouriteButton();updateHomeButton();
-  $('#teeSection').scrollIntoView({behavior:'smooth',block:'start'});
+  $('#selectedClubName').textContent=selectedClub.name;renderTeeLoading();updateFavouriteButton();updateHomeButton();showScreen('tee');window.scrollTo({top:0,behavior:'smooth'});
   try{
     const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
     const courses=await Promise.all(summary.filter(course=>course?.id).map(course=>golfApi(`/courses/${encodeURIComponent(course.id)}`)));
@@ -237,7 +236,8 @@ function selectTee(courseId,teeId){
 renderFavourites();
 $('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),250)});
 $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites()}});
-document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
+$('#teeChoices').addEventListener('click',event=>{const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
@@ -269,7 +269,7 @@ $('#playerRows').addEventListener('input',event=>{
 });
 $('#playerRows').addEventListener('change',event=>{const i=Number(event.target.dataset.playerName??event.target.dataset.playerIndex);if(Number.isInteger(i))queueRememberedPlayerSave(i)});
 $('#playerRows').addEventListener('click',event=>{if(event.target.matches('[data-player-course]')){event.target.select();return}const button=event.target.closest('[data-clear-player]');if(!button)return;const i=Number(button.dataset.clearPlayer);state.players[i]=emptyPlayer(i===0?settingsPlayerName():'');renderPlayers();save()});
-$('#backToCourse').addEventListener('click',()=>showScreen('course'));
+$('#backToCourse').addEventListener('click',()=>showScreen('tee'));
 $('#startRound').addEventListener('click',()=>{const error=$('#playerError'),players=state.players.filter(player=>player.name.trim());if(!players.length){error.textContent='Enter at least one player.';return}if(players.some(player=>!Number.isInteger(Number(player.courseHandicap))||Number(player.courseHandicap)<0||Number(player.courseHandicap)>36)){error.textContent='Each named player needs a Course Handicap from 0 to 36.';return}state.players=players.map(player=>({...player,name:player.name.trim(),courseHandicap:Number(player.courseHandicap)}));state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';state.players.forEach((_,i)=>queueRememberedPlayerSave(i));renderScore();showScreen('score');save()});
 
 let selectedPlayer=0,swipeStartX=0,swipeStartY=0,suppressPlayerClickUntil=0;
