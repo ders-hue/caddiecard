@@ -1,7 +1,12 @@
 const $=selector=>document.querySelector(selector);
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 function dismissSplash(){const splash=$('#appSplash');if(!splash||splash.classList.contains('splash-exit'))return;splash.classList.add('splash-exit');setTimeout(()=>splash.remove(),380)}
-window.addEventListener('load',()=>setTimeout(dismissSplash,900),{once:true});setTimeout(dismissSplash,3000);
+function runSplash(){
+  const messages=['Refreshing Cloudflare links…','Checking GitHub version…','Checking saved clubs…','Finding today’s pin positions…','Polishing the scorecard…','Waking the course caddie…'],status=$('#splashStatus');let last=-1;
+  const nextMessage=()=>{let pick=Math.floor(Math.random()*messages.length);if(pick===last)pick=(pick+1)%messages.length;last=pick;if(status)status.textContent=messages[pick]};
+  nextMessage();const messageTimer=setInterval(nextMessage,430),hold=1500+Math.random()*1000;setTimeout(()=>{clearInterval(messageTimer);dismissSplash()},hold);
+}
+window.addEventListener('load',runSplash,{once:true});setTimeout(dismissSplash,5000);
 const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
