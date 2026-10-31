@@ -105,9 +105,16 @@ function prepareOcrImage(file){
   });
 }
 
-function applyRecognizedText(text,blocks){
+function cropCanvas(source,top,height){
+  const canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=Math.round(source.height*height);
+  canvas.getContext('2d').drawImage(source,0,Math.round(source.height*top),source.width,canvas.height,0,0,canvas.width,canvas.height);
+  return canvas;
+}
+
+function applyRecognizedText(text,blocks,previousRows=new Map()){
   const textRows=scorecardRowsFromText(text),positionedRows=scorecardRowsFromWords(wordsFromBlocks(blocks));
-  const rows=positionedRows.size>=textRows.size?positionedRows:textRows;
+  const newRows=positionedRows.size>=textRows.size?positionedRows:textRows;
+  const rows=new Map(previousRows);for(const [hole,row] of newRows)rows.set(hole,row);
   const recognized=[...rows.values()];
   const hasCompleteCard=rows.size===18&&new Set(recognized.map(row=>row.strokeIndex)).size===18;
   for(const [hole,row] of rows){
@@ -118,7 +125,7 @@ function applyRecognizedText(text,blocks){
   const ratingMatch=text.match(/(?:course\s+)?rating\D{0,12}(\d{2}(?:\.\d)?)/i);
   if(slopeMatch&&Number(slopeMatch[1])>=55&&Number(slopeMatch[1])<=155)$('#slopeRating').value=slopeMatch[1];
   if(ratingMatch&&Number(ratingMatch[1])>=40&&Number(ratingMatch[1])<=90)$('#courseRating').value=ratingMatch[1];
-  return {rowCount:rows.size,hasCompleteCard};
+  return {rows,rowCount:rows.size,hasCompleteCard};
 }
 
 renderCourseRows();
@@ -137,10 +144,18 @@ $('#scorecardPhoto').addEventListener('change',async event=>{
     await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_BLOCK,preserve_interword_spaces:'1'});
     const preparedImage=await prepareOcrImage(file);
     const result=await worker.recognize(preparedImage,{}, {text:true,blocks:true});
-    const applied=applyRecognizedText(result.data.text||'',result.data.blocks||[]);
+    let applied=applyRecognizedText(result.data.text||'',result.data.blocks||[]);
+    if(!applied.hasCompleteCard){
+      const detailedImages=[cropCanvas(preparedImage,0,.58),cropCanvas(preparedImage,.42,.58)];
+      for(let i=0;i<detailedImages.length&&!applied.hasCompleteCard;i++){
+        status.textContent=`Reading ${i?'back':'front'} nine in more detail…`;
+        const detail=await worker.recognize(detailedImages[i],{}, {text:true,blocks:true});
+        applied=applyRecognizedText(detail.data.text||'',detail.data.blocks||[],applied.rows);
+      }
+    }
     status.textContent=applied.hasCompleteCard
-      ?'Scorecard details filled in. Check every value against the photograph before continuing.'
-      :`Text recognition found ${applied.rowCount} of 18 hole rows. Check and complete the details below against the photograph.`;
+      ?'All 18 hole rows were filled in. Check every value against the photograph. Enter the course name and selected tee if they are not printed on the card.'
+      :`Text recognition filled ${applied.rowCount} of 18 hole rows. Check those values and complete the remaining rows. Enter the course name and selected tee if they are not printed on the card.`;
   }catch(error){
     console.error('Scorecard recognition failed',error);
     status.textContent='Automatic recognition could not finish. Check your connection, then retake the photo or enter the details below.';
