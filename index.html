@@ -117,12 +117,21 @@
       <div class="hole-dots" id="holeDots"></div>
       <p class="swipe-help">Swipe left for the next hole · swipe right to go back</p>
     </section>
+    <section class="screen hidden" id="summaryScreen">
+      <p class="step">ROUND COMPLETE</p><h1>Scorecard summary</h1>
+      <p class="lead" id="summaryCourse"></p>
+      <div class="summary-result card" id="summaryResult"></div>
+      <div class="summary-players" id="summaryPlayers"></div>
+      <div class="card summary-card"><h2>Hole-by-hole</h2><div class="summary-table-wrap"><table id="summaryTable"></table></div></div>
+      <p class="validation" id="summaryError"></p>
+      <div class="summary-actions"><button class="secondary" id="backToScoring">Edit scores</button><button class="primary" id="sharePdf">Share PDF</button><button class="secondary" id="startNewRound">Start new round</button></div>
+    </section>
   </main>
 
   <dialog id="finishDialog">
-    <h2>Finish this round?</h2>
-    <p>This clears the one-off round and its temporary recovery data from this phone.</p>
-    <div class="bottom-actions"><button class="secondary" id="cancelFinish">Keep scoring</button><button class="danger" id="confirmFinish">Clear round</button></div>
+    <h2>Start a new round?</h2>
+    <p>Your completed scorecard will be cleared from this phone. Save or share the PDF first if you want to keep it.</p>
+    <div class="bottom-actions"><button class="secondary" id="cancelFinish">Cancel</button><button class="danger" id="confirmFinish">Start new round</button></div>
   </dialog>
 
   <dialog id="settingsDialog" class="settings-dialog">
@@ -160,6 +169,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=40"></script>
+<script src="app.js?v=41"></script>
 </body>
 </html>
