@@ -210,12 +210,11 @@ function teeColour(colour){
   const safe={white:'#fff',yellow:'#f3d638',red:'#d94b43',blue:'#4c7edb',black:'#222',green:'#4d9b57',orange:'#ef963c',purple:'#8c5db5'};
   return safe[String(colour||'').toLowerCase()]||'#ddd';
 }
-function teeDisplayName(tee){return tee.name?.trim()||tee.colour?.trim()||'Unlabelled'}
 function teeMeta(tee){return [tee.gender,`Par ${tee.par}`,`Rating ${tee.course_rating}`,`Slope ${tee.slope_rating}`].filter(Boolean).join(' · ')}
 function renderTeeChoices(courses){
   const groups=courses.map(course=>{
-    const tees=(course.tee_sets||[]).filter(tee=>tee.holes?.length===18);
-    return `<section class="course-group"><h3>${escapeHtml(course.name||selectedClub.name)}</h3>${tees.map(tee=>`<button class="tee-choice" data-course-id="${escapeHtml(course.id)}" data-tee-id="${escapeHtml(tee.id)}"><span><strong>${escapeHtml(teeDisplayName(tee))} tees</strong><small>${escapeHtml(teeMeta(tee))}</small></span><span class="tee-colour" style="--tee-colour:${teeColour(tee.colour)}"></span></button>`).join('')||'<p class="status">No complete tee data is available for this course.</p>'}</section>`;
+    const tees=(course.tee_sets||[]).filter(tee=>tee.holes?.length===18&&tee.name?.trim());
+    return `<section class="course-group"><h3>${escapeHtml(course.name||selectedClub.name)}</h3>${tees.map(tee=>`<button class="tee-choice" data-course-id="${escapeHtml(course.id)}" data-tee-id="${escapeHtml(tee.id)}"><span><strong>${escapeHtml(tee.name.trim())} tees</strong><small>${escapeHtml(teeMeta(tee))}</small></span><span class="tee-colour" style="--tee-colour:${teeColour(tee.colour)}"></span></button>`).join('')||'<p class="status">No complete tee data is available for this course.</p>'}</section>`;
   }).join('');
   $('#teeChoices').innerHTML=groups||'<p class="validation">No complete tee data is available for this club.</p>';
   $('#teeChoices')._courses=courses;
@@ -223,7 +222,7 @@ function renderTeeChoices(courses){
 function selectTee(courseId,teeId){
   const course=($('#teeChoices')._courses||[]).find(item=>item.id===courseId),tee=course?.tee_sets?.find(item=>item.id===teeId);if(!course||!tee)return;
   const holes=[...tee.holes].sort((a,b)=>a.hole_number-b.hole_number),pars=holes.map(hole=>Number(hole.par)),indexes=holes.map(hole=>Number(hole.stroke_index));
-  const name=selectedClub.name,displayName=teeDisplayName(tee),teeName=course.name&&course.name!==selectedClub.name?`${course.name} · ${displayName}`:displayName,slope=Number(tee.slope_rating),rating=Number(tee.course_rating);
+  const name=selectedClub.name,displayName=tee.name.trim(),teeName=course.name&&course.name!==selectedClub.name?`${course.name} · ${displayName}`:displayName,slope=Number(tee.slope_rating),rating=Number(tee.course_rating);
   const validIndexes=[...indexes].sort((a,b)=>a-b).every((value,index)=>value===index+1);
   if(holes.length!==18||pars.some(value=>!Number.isInteger(value)||value<3||value>6)||!validIndexes||!Number.isFinite(rating)||rating<40||rating>90||!Number.isInteger(slope)||slope<55||slope>155){$('#teeChoices').insertAdjacentHTML('beforeend','<p class="validation">This tee does not have a complete scorecard.</p>');return}
   state.course={name,tee:teeName,slope,rating,pars,indexes};renderPlayers();showScreen('players');save();
