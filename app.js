@@ -132,6 +132,7 @@ function applyRecognizedText(text,blocks,previousRows=new Map()){
 }
 
 const COURSE_API='https://caddiecard-api.ders-c54.workers.dev';
+const GOLF_CACHE_KEY='caddiecard-golf-api-cache-v1';
 const FAVOURITES_KEY='caddiecard-favourite-clubs-v1';
 const LEGACY_FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
 const HOME_CLUB_KEY='caddiecard-home-club-v1';
@@ -146,33 +147,31 @@ function saveHomeClub(club){if(club)localStorage.setItem(HOME_CLUB_KEY,JSON.stri
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 const golfApiCache=new Map(),golfApiPending=new Map();
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
-let golfApiQueue=Promise.resolve(),lastGolfApiRequest=0;
+function storedGolfApi(path){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},entry=cache[path];if(!entry||entry.expires<Date.now())return null;return entry.payload}catch{return null}}
+function storeGolfApi(path,payload){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},ttl=path.startsWith('/courses/')?7*864e5:path.includes('/courses')?864e5:15*60e3;cache[path]={payload,expires:Date.now()+ttl};localStorage.setItem(GOLF_CACHE_KEY,JSON.stringify(cache))}catch{}}
 async function requestGolfApi(path){
   for(let attempt=0;attempt<3;attempt++){
     const separator=path.includes('?')?'&':'?';
     const response=await fetch(`${COURSE_API}${path}${separator}_retry=${attempt}-${Date.now()}`,{cache:'no-store'});
     if(response.ok){const payload=await response.json();return payload.data??payload}
     if(response.status!==429)throw new Error('Course information could not be loaded.');
-    if(attempt<2)await wait(1500*(attempt+1));
+    if(attempt<2)await wait(750*(attempt+1));
   }
   throw new Error('The course service is busy. Please try again in a moment.');
 }
-function queueGolfApiRequest(path){
-  const queued=golfApiQueue.then(async()=>{const delay=1500-(Date.now()-lastGolfApiRequest);if(delay>0)await wait(delay);try{return await requestGolfApi(path)}finally{lastGolfApiRequest=Date.now()}});
-  golfApiQueue=queued.catch(()=>{});return queued;
-}
 function golfApi(path){
   if(golfApiCache.has(path))return Promise.resolve(golfApiCache.get(path));
+  const stored=storedGolfApi(path);if(stored!=null){golfApiCache.set(path,stored);return Promise.resolve(stored)}
   if(golfApiPending.has(path))return golfApiPending.get(path);
-  const request=queueGolfApiRequest(path).then(payload=>{golfApiCache.set(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
+  const request=requestGolfApi(path).then(payload=>{golfApiCache.set(path,payload);storeGolfApi(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
   golfApiPending.set(path,request);return request;
 }
 function clubButton(club){
   const place=[club.city,club.county,club.postcode].filter(Boolean).filter((value,index,array)=>array.indexOf(value)===index).join(' · ');
-  return `<button class="club-choice" data-club-id="${escapeHtml(club.id)}"><span><strong>${escapeHtml(club.name)}</strong><small>${escapeHtml(place)}</small></span><span class="choice-arrow">›</span></button>`;
+  return `<button class="club-choice" data-club-id="${escapeHtml(club.id)}"><span><strong>${escapeHtml(club.name)}</strong><small>${escapeHtml(place)}</small></span><svg class="choice-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`;
 }
 function renderFavourites(){
-  const home=homeClub(),clubs=favourites().sort((a,b)=>(b.id===home?.id)-(a.id===home?.id)),section=$('#favouritesSection');section.classList.toggle('hidden',!clubs.length);
+  const home=homeClub(),clubs=favourites().sort((a,b)=>(b.id===home?.id)-(a.id===home?.id)),section=$('#favouritesSection'),searching=$('#clubSearch').value.trim().length>=2;section.classList.toggle('hidden',!clubs.length||searching);
   $('#favouriteClubs').innerHTML=clubs.map(clubButton).join('');
 }
 function renderSearchResults(clubs){
@@ -186,6 +185,12 @@ async function searchClubs(query){
     const clubs=Array.isArray(payload)?payload:(payload.clubs||[]);renderSearchResults(clubs);$('#clubStatus').textContent=`${clubs.length} club${clubs.length===1?'':'s'} found.`;
   }catch(error){if(request===searchRequest)$('#clubStatus').textContent=error.message}
 }
+function renderTeeLoading(){
+  $('#teeChoices').innerHTML='<div class="tee-loading" role="status"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17"/><path d="M22 5a17 17 0 0 1 17 17"/></svg><div><strong>Finding tees and scorecards…</strong><small>This usually takes a moment.</small></div></div><div class="tee-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
+}
+function showClubDiscovery(){
+  clubSelectionRequest++;selectedClub=null;$('#courseScreen').classList.remove('tee-mode');$('#teeSection').classList.add('hidden');$('#clubDiscovery').classList.remove('hidden');$('#clubSearch').value='';$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters or choose a saved club.';renderFavourites();$('#clubSearch').focus();
+}
 function updateFavouriteButton(){
   const active=selectedClub&&favourites().some(club=>club.id===selectedClub.id),button=$('#toggleFavourite');
   button.classList.toggle('active',Boolean(active));button.setAttribute('aria-label',active?'Remove club from favourites':'Add club to favourites');
@@ -198,7 +203,7 @@ function normaliseCourses(payload){return Array.isArray(payload)?payload:(payloa
 async function selectClub(id,displayedName){
   const request=++clubSelectionRequest,known=[...favourites()];
   selectedClub={id,name:displayedName?.trim()||known.find(club=>club.id===id)?.name||'Selected golf club'};
-  $('#selectedClubName').textContent=selectedClub.name;$('#teeSection').classList.remove('hidden');$('#teeChoices').innerHTML='<p class="status">Loading courses and tees…</p>';updateFavouriteButton();updateHomeButton();
+  $('#selectedClubName').textContent=selectedClub.name;$('#courseScreen').classList.add('tee-mode');$('#clubDiscovery').classList.add('hidden');$('#teeSection').classList.remove('hidden');renderTeeLoading();updateFavouriteButton();updateHomeButton();
   $('#teeSection').scrollIntoView({behavior:'smooth',block:'start'});
   try{
     const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
@@ -229,9 +234,10 @@ function selectTee(courseId,teeId){
 }
 
 renderFavourites();
-$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Enter at least two characters.';$('#searchSection').classList.add('hidden');return}searchTimer=setTimeout(()=>searchClubs(query),350)});
-$('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Enter at least two characters.'}});
+$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters or choose a saved club.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),250)});
+$('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters or choose a saved club.';renderFavourites()}});
 document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+$('#changeClub').addEventListener('click',showClubDiscovery);
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
 

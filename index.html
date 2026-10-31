@@ -8,7 +8,7 @@
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=24">
+  <link rel="stylesheet" href="styles.css?v=25">
 </head>
 <body>
   <header class="topbar">
@@ -29,19 +29,22 @@
       <p class="lead">Search for a golf club or choose a favourite, then select the tees you are playing.</p>
 
       <article class="card club-picker">
-        <label class="search-label">Find a golf club
-          <input id="clubSearch" type="search" autocomplete="off" placeholder="Start typing a club name or postcode">
-        </label>
-        <p id="clubStatus" class="status" aria-live="polite">Enter at least two characters.</p>
-        <section id="favouritesSection" class="picker-section hidden">
-          <h2>★ Favourites</h2>
-          <div id="favouriteClubs" class="choice-list"></div>
-        </section>
-        <section id="searchSection" class="picker-section hidden">
-          <h2>Search results</h2>
-          <div id="clubResults" class="choice-list"></div>
-        </section>
-        <section id="teeSection" class="picker-section hidden">
+        <div id="clubDiscovery">
+          <label class="search-label">Find a golf club
+            <input id="clubSearch" type="search" autocomplete="off" placeholder="Club name or postcode">
+          </label>
+          <p id="clubStatus" class="status discovery-status" aria-live="polite">Type at least two characters or choose a saved club.</p>
+          <section id="searchSection" class="picker-section search-results hidden">
+            <h2>Matching clubs</h2>
+            <div id="clubResults" class="choice-list"></div>
+          </section>
+          <section id="favouritesSection" class="picker-section hidden">
+            <h2 class="section-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.4 2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></svg><span>Saved clubs</span></h2>
+            <div id="favouriteClubs" class="choice-list"></div>
+          </section>
+        </div>
+        <section id="teeSection" class="tee-section hidden">
+          <button id="changeClub" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Change club</span></button>
           <div class="selected-club-heading">
             <div><p class="step">SELECTED CLUB</p><h2 id="selectedClubName"></h2></div>
             <div class="club-actions">
@@ -53,7 +56,7 @@
               </button>
             </div>
           </div>
-          <p class="status">Choose the tees you are playing.</p>
+          <p class="status tee-instruction">Choose the tees you are playing.</p>
           <div id="teeChoices" class="choice-list"></div>
         </section>
       </article>
@@ -121,6 +124,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=23"></script>
+<script src="app.js?v=25"></script>
 </body>
 </html>
