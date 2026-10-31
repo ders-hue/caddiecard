@@ -130,7 +130,7 @@ function applyRecognizedText(text,blocks,previousRows=new Map()){
   return {rows,rowCount:rows.size,hasCompleteCard};
 }
 
-const COURSE_API='https://scoring-app-api.ders-c54.workers.dev';
+const COURSE_API='https://caddiecard-api.ders-c54.workers.dev';
 const FAVOURITES_KEY='caddiecard-favourite-clubs-v1';
 const LEGACY_FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
 let selectedClub=null,searchTimer=null,searchRequest=0;
