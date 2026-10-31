@@ -25,7 +25,7 @@ function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},
   $('#courseTable tbody').innerHTML=Array.from({length:18},(_,i)=>`<tr><td>${i+1}</td><td><input type="number" inputmode="numeric" min="3" max="6" value="${pars[i]??''}" data-par="${i}" aria-label="Par for hole ${i+1}"></td><td><input type="number" inputmode="numeric" min="1" max="18" value="${indexes[i]??''}" data-si="${i}" aria-label="Stroke index for hole ${i+1}"></td></tr>`).join('');
 }
 
-function showScreen(name){['course','tee','format','players','score'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name));window.scrollTo({top:0,behavior:'auto'})}
+function showScreen(name){['course','tee','format','players','score','summary'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name));window.scrollTo({top:0,behavior:'auto'})}
 function coursePar(){return state.course.pars.reduce((a,b)=>a+b,0)}
 function courseHandicap(index){return Math.round(index*(state.course.slope/113)+(state.course.rating-coursePar()))}
 function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(handicap/18)+(strokeIndex<=handicap%18?1:0);const plus=Math.abs(handicap);return -(Math.floor(plus/18)+(strokeIndex<=plus%18?1:0))}
