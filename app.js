@@ -146,6 +146,7 @@ function saveHomeClub(club){if(club)localStorage.setItem(HOME_CLUB_KEY,JSON.stri
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 const golfApiCache=new Map(),golfApiPending=new Map();
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+let golfApiQueue=Promise.resolve(),lastGolfApiRequest=0;
 async function requestGolfApi(path){
   for(let attempt=0;attempt<3;attempt++){
     const separator=path.includes('?')?'&':'?';
@@ -156,10 +157,14 @@ async function requestGolfApi(path){
   }
   throw new Error('The course service is busy. Please try again in a moment.');
 }
+function queueGolfApiRequest(path){
+  const queued=golfApiQueue.then(async()=>{const delay=1500-(Date.now()-lastGolfApiRequest);if(delay>0)await wait(delay);try{return await requestGolfApi(path)}finally{lastGolfApiRequest=Date.now()}});
+  golfApiQueue=queued.catch(()=>{});return queued;
+}
 function golfApi(path){
   if(golfApiCache.has(path))return Promise.resolve(golfApiCache.get(path));
   if(golfApiPending.has(path))return golfApiPending.get(path);
-  const request=requestGolfApi(path).then(payload=>{golfApiCache.set(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
+  const request=queueGolfApiRequest(path).then(payload=>{golfApiCache.set(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
   golfApiPending.set(path,request);return request;
 }
 function clubButton(club){
