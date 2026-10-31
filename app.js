@@ -1,5 +1,7 @@
 const $=selector=>document.querySelector(selector);
 if('scrollRestoration' in history)history.scrollRestoration='manual';
+function dismissSplash(){const splash=$('#appSplash');if(!splash||splash.classList.contains('splash-exit'))return;splash.classList.add('splash-exit');setTimeout(()=>splash.remove(),380)}
+window.addEventListener('load',()=>setTimeout(dismissSplash,900),{once:true});setTimeout(dismissSplash,3000);
 const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
