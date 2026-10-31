@@ -13,18 +13,74 @@ function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(ha
 function pointsFor(gross,player,hole){if(!gross)return null;const net=gross-strokesOnHole(player.courseHandicap,state.course.indexes[hole]);return Math.max(0,2+(state.course.pars[hole]-net))}
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 
+let ocrLibraryPromise;
+function loadOcrLibrary(){
+  if(window.Tesseract)return Promise.resolve(window.Tesseract);
+  if(ocrLibraryPromise)return ocrLibraryPromise;
+  ocrLibraryPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js';
+    script.crossOrigin='anonymous';
+    script.onload=()=>window.Tesseract?resolve(window.Tesseract):reject(new Error('OCR library unavailable'));
+    script.onerror=()=>reject(new Error('OCR library failed to load'));
+    document.head.appendChild(script);
+  });
+  return ocrLibraryPromise;
+}
+
+function scorecardRowsFromText(text){
+  const rows=new Map();
+  for(const line of text.split(/\r?\n/)){
+    const values=(line.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    const hole=values[0];
+    if(!Number.isInteger(hole)||hole<1||hole>18)continue;
+    const possibleIndexes=values.slice(1).filter(value=>Number.isInteger(value)&&value>=1&&value<=18);
+    const strokeIndex=possibleIndexes.at(-1);
+    const par=values.slice(1,-1).reverse().find(value=>Number.isInteger(value)&&value>=3&&value<=6);
+    if(par&&strokeIndex)rows.set(hole,{par,strokeIndex});
+  }
+  return rows;
+}
+
+function applyRecognizedText(text){
+  const rows=scorecardRowsFromText(text);
+  const recognized=[...rows.values()];
+  const hasCompleteCard=rows.size===18&&new Set(recognized.map(row=>row.strokeIndex)).size===18;
+  if(hasCompleteCard){
+    for(let hole=1;hole<=18;hole++){
+      document.querySelector(`[data-par="${hole-1}"]`).value=rows.get(hole).par;
+      document.querySelector(`[data-si="${hole-1}"]`).value=rows.get(hole).strokeIndex;
+    }
+  }
+  const slopeMatch=text.match(/slope(?:\s+rating)?\D{0,12}(\d{2,3})/i);
+  const ratingMatch=text.match(/(?:course\s+)?rating\D{0,12}(\d{2}(?:\.\d)?)/i);
+  if(slopeMatch&&Number(slopeMatch[1])>=55&&Number(slopeMatch[1])<=155)$('#slopeRating').value=slopeMatch[1];
+  if(ratingMatch&&Number(ratingMatch[1])>=40&&Number(ratingMatch[1])<=90)$('#courseRating').value=ratingMatch[1];
+  return {rowCount:rows.size,hasCompleteCard};
+}
+
 renderCourseRows();
 $('#takePhoto').addEventListener('click',()=>$('#scorecardPhoto').click());
 $('#scorecardPhoto').addEventListener('change',async event=>{
   const file=event.target.files?.[0];if(!file)return;
   const preview=$('#photoPreview');preview.src=URL.createObjectURL(file);preview.classList.remove('hidden');
   const status=$('#scanStatus');
-  if(!('TextDetector' in window)){status.textContent='Photo captured. Automatic text recognition is not available in this browser, so check the details below against the photograph.';return}
-  status.textContent='Looking for course details…';
+  status.textContent='Preparing on-device text recognition… The first scan can take a little longer.';
+  let worker;
   try{
-    const bitmap=await createImageBitmap(file),blocks=await new TextDetector().detect(bitmap),numbers=blocks.flatMap(block=>(block.rawValue.match(/\b(?:[1-9]|1[0-8])\b/g)||[]).map(Number));
-    status.textContent=numbers.length?'Text found. Please check every par and stroke index below before continuing.':'No reliable rows were found. Enter the course details below while viewing the photograph.';
-  }catch{status.textContent='The photograph could not be read automatically. Enter the course details below while viewing it.'}
+    const Tesseract=await loadOcrLibrary();
+    worker=await Tesseract.createWorker('eng',1,{logger:message=>{
+      if(message.status==='recognizing text')status.textContent=`Reading scorecard… ${Math.round((message.progress||0)*100)}%`;
+    }});
+    const result=await worker.recognize(file);
+    const applied=applyRecognizedText(result.data.text||'');
+    status.textContent=applied.hasCompleteCard
+      ?'Scorecard details filled in. Check every value against the photograph before continuing.'
+      :`Text recognition found ${applied.rowCount} of 18 hole rows. Check and complete the details below against the photograph.`;
+  }catch(error){
+    console.error('Scorecard recognition failed',error);
+    status.textContent='Automatic recognition could not finish. Check your connection, then retake the photo or enter the details below.';
+  }finally{if(worker)await worker.terminate()}
 });
 
 $('#confirmCourse').addEventListener('click',()=>{

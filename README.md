@@ -9,4 +9,4 @@ A phone-first, buildless app for one-off golf rounds. It supports:
 - Individual Stableford scoring
 - Temporary browser recovery only; finishing clears the round
 
-Open `index.html` in a modern browser. Camera capture works best when served over HTTPS or from localhost. Automatic text detection depends on browser support and always requires manual verification.
+Open `index.html` in a modern browser. Camera capture works best when served over HTTPS or from localhost. Scorecard text recognition runs in the browser and always requires manual verification.
