@@ -189,7 +189,7 @@ function renderTeeLoading(){
   $('#teeChoices').innerHTML='<div class="tee-loading" role="status"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17"/><path d="M22 5a17 17 0 0 1 17 17"/></svg><div><strong>Finding tees and scorecards…</strong><small>This usually takes a moment.</small></div></div><div class="tee-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
 }
 function showClubDiscovery(){
-  clubSelectionRequest++;selectedClub=null;$('#courseScreen').classList.remove('tee-mode');$('#teeSection').classList.add('hidden');$('#clubDiscovery').classList.remove('hidden');$('#clubSearch').value='';$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters or choose a saved club.';renderFavourites();$('#clubSearch').focus();
+  clubSelectionRequest++;selectedClub=null;$('#courseScreen').classList.remove('tee-mode');$('#teeSection').classList.add('hidden');$('#clubDiscovery').classList.remove('hidden');$('#clubSearch').value='';$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites();$('#clubSearch').focus();
 }
 function updateFavouriteButton(){
   const active=selectedClub&&favourites().some(club=>club.id===selectedClub.id),button=$('#toggleFavourite');
@@ -234,8 +234,8 @@ function selectTee(courseId,teeId){
 }
 
 renderFavourites();
-$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters or choose a saved club.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),250)});
-$('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters or choose a saved club.';renderFavourites()}});
+$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),250)});
+$('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites()}});
 document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});

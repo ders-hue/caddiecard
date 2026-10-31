@@ -8,7 +8,7 @@
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
 </head>
 <body>
   <header class="topbar">
@@ -26,21 +26,21 @@
     <section class="screen" id="courseScreen">
       <p class="step">STEP 1 OF 3</p>
       <h1>Select course</h1>
-      <p class="lead">Search for a golf club or choose a favourite, then select the tees you are playing.</p>
+      <p class="lead">Choose your home or a saved club, or find somewhere different.</p>
 
       <article class="card club-picker">
         <div id="clubDiscovery">
-          <label class="search-label">Find a golf club
-            <input id="clubSearch" type="search" autocomplete="off" placeholder="Club name or postcode">
-          </label>
-          <p id="clubStatus" class="status discovery-status" aria-live="polite">Type at least two characters or choose a saved club.</p>
-          <section id="searchSection" class="picker-section search-results hidden">
-            <h2>Matching clubs</h2>
-            <div id="clubResults" class="choice-list"></div>
-          </section>
           <section id="favouritesSection" class="picker-section hidden">
             <h2 class="section-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.4 2.6 5.3 5.9.8-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.8z"/></svg><span>Saved clubs</span></h2>
             <div id="favouriteClubs" class="choice-list"></div>
+          </section>
+          <label class="search-label">Find a different club
+            <input id="clubSearch" type="search" autocomplete="off" placeholder="Club name or postcode">
+          </label>
+          <p id="clubStatus" class="status discovery-status" aria-live="polite">Type at least two characters.</p>
+          <section id="searchSection" class="picker-section search-results hidden">
+            <h2>Matching clubs</h2>
+            <div id="clubResults" class="choice-list"></div>
           </section>
         </div>
         <section id="teeSection" class="tee-section hidden">
@@ -124,6 +124,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=25"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
