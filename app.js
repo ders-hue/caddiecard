@@ -135,7 +135,7 @@ const COURSE_API='https://caddiecard-api.ders-c54.workers.dev';
 const FAVOURITES_KEY='caddiecard-favourite-clubs-v1';
 const LEGACY_FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
 const HOME_CLUB_KEY='caddiecard-home-club-v1';
-let selectedClub=null,searchTimer=null,searchRequest=0;
+let selectedClub=null,searchTimer=null,searchRequest=0,clubSelectionRequest=0;
 
 function favourites(){
   try{const saved=JSON.parse(localStorage.getItem(FAVOURITES_KEY)||localStorage.getItem(LEGACY_FAVOURITES_KEY));if(saved&&!localStorage.getItem(FAVOURITES_KEY))saveFavourites(saved);return saved||[]}catch{return []}
@@ -195,16 +195,16 @@ function updateHomeButton(){
   button.classList.toggle('active',Boolean(active));button.setAttribute('aria-label',active?'Remove as home club':'Set as home club');
 }
 function normaliseCourses(payload){return Array.isArray(payload)?payload:(payload.courses?payload.courses:[payload])}
-async function selectClub(id){
-  const known=[...favourites()];document.querySelectorAll(`[data-club-id="${CSS.escape(id)}"]`).forEach(button=>{const strong=button.querySelector('strong');if(strong)known.push({id,name:strong.textContent})});
-  selectedClub=known.find(club=>club.id===id)||{id,name:'Selected golf club'};
+async function selectClub(id,displayedName){
+  const request=++clubSelectionRequest,known=[...favourites()];
+  selectedClub={id,name:displayedName?.trim()||known.find(club=>club.id===id)?.name||'Selected golf club'};
   $('#selectedClubName').textContent=selectedClub.name;$('#teeSection').classList.remove('hidden');$('#teeChoices').innerHTML='<p class="status">Loading courses and tees…</p>';updateFavouriteButton();updateHomeButton();
   $('#teeSection').scrollIntoView({behavior:'smooth',block:'start'});
   try{
-    const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));
+    const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
     const courses=await Promise.all(summary.filter(course=>course?.id).map(course=>golfApi(`/courses/${encodeURIComponent(course.id)}`)));
-    renderTeeChoices(courses);
-  }catch(error){$('#teeChoices').innerHTML=`<p class="validation">${escapeHtml(error.message)}</p>`}
+    if(request===clubSelectionRequest)renderTeeChoices(courses);
+  }catch(error){if(request===clubSelectionRequest)$('#teeChoices').innerHTML=`<p class="validation">${escapeHtml(error.message)}</p>`}
 }
 function teeColour(colour){
   const safe={white:'#fff',yellow:'#f3d638',red:'#d94b43',blue:'#4c7edb',black:'#222',green:'#4d9b57',orange:'#ef963c',purple:'#8c5db5'};
@@ -231,7 +231,7 @@ function selectTee(courseId,teeId){
 renderFavourites();
 $('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Enter at least two characters.';$('#searchSection').classList.add('hidden');return}searchTimer=setTimeout(()=>searchClubs(query),350)});
 $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Enter at least two characters.'}});
-document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
 
