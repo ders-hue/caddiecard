@@ -144,10 +144,22 @@ function saveFavourites(clubs){localStorage.setItem(FAVOURITES_KEY,JSON.stringif
 function homeClub(){try{return JSON.parse(localStorage.getItem(HOME_CLUB_KEY))}catch{return null}}
 function saveHomeClub(club){if(club)localStorage.setItem(HOME_CLUB_KEY,JSON.stringify(club));else localStorage.removeItem(HOME_CLUB_KEY)}
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
-async function golfApi(path){
-  const response=await fetch(`${COURSE_API}${path}`);
-  if(!response.ok)throw new Error(response.status===429?'The course service request limit has been reached.':'Course information could not be loaded.');
-  const payload=await response.json();return payload.data??payload;
+const golfApiCache=new Map(),golfApiPending=new Map();
+const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+async function requestGolfApi(path){
+  for(let attempt=0;attempt<3;attempt++){
+    const response=await fetch(`${COURSE_API}${path}`);
+    if(response.ok){const payload=await response.json();return payload.data??payload}
+    if(response.status!==429)throw new Error('Course information could not be loaded.');
+    if(attempt<2)await wait(700*(attempt+1));
+  }
+  throw new Error('The course service is busy. Please try again in a moment.');
+}
+function golfApi(path){
+  if(golfApiCache.has(path))return Promise.resolve(golfApiCache.get(path));
+  if(golfApiPending.has(path))return golfApiPending.get(path);
+  const request=requestGolfApi(path).then(payload=>{golfApiCache.set(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
+  golfApiPending.set(path,request);return request;
 }
 function clubButton(club){
   const place=[club.city,club.county,club.postcode].filter(Boolean).filter((value,index,array)=>array.indexOf(value)===index).join(' · ');
