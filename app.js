@@ -148,10 +148,11 @@ const golfApiCache=new Map(),golfApiPending=new Map();
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 async function requestGolfApi(path){
   for(let attempt=0;attempt<3;attempt++){
-    const response=await fetch(`${COURSE_API}${path}`);
+    const separator=path.includes('?')?'&':'?';
+    const response=await fetch(`${COURSE_API}${path}${separator}_retry=${attempt}-${Date.now()}`,{cache:'no-store'});
     if(response.ok){const payload=await response.json();return payload.data??payload}
     if(response.status!==429)throw new Error('Course information could not be loaded.');
-    if(attempt<2)await wait(700*(attempt+1));
+    if(attempt<2)await wait(1500*(attempt+1));
   }
   throw new Error('The course service is busy. Please try again in a moment.');
 }
