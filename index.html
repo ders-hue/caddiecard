@@ -74,10 +74,12 @@
     </section>
 
     <section class="screen hidden" id="scoreScreen">
-      <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><button class="secondary compact" id="finishRound">Finish</button></div>
+      <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><div class="running-total"><strong id="completedHoles">0/18</strong><small>complete</small></div></div>
+      <div class="progress"><span id="scoreProgress"></span></div>
       <div id="scorePlayers" class="score-players"></div>
-      <nav class="hole-nav"><button class="secondary" id="previousHole">← Previous</button><button class="primary" id="nextHole">Next →</button></nav>
+      <p class="validation score-error" id="scoreError"></p>
       <div class="hole-dots" id="holeDots"></div>
+      <p class="swipe-help">Swipe left for the next hole · swipe right to go back</p>
     </section>
   </main>
 
@@ -87,6 +89,21 @@
     <div class="bottom-actions"><button class="secondary" id="cancelFinish">Keep scoring</button><button class="danger" id="confirmFinish">Clear round</button></div>
   </dialog>
 
-  <script src="app.js?v=6"></script>
+  <dialog id="scoreEntryDialog" class="score-entry-dialog">
+    <div class="score-entry-head">
+      <button class="score-entry-close" id="closeScoreEntry" type="button" aria-label="Close score entry">×</button>
+      <div class="score-entry-title" id="keypadPlayer">PLAYER</div>
+      <div class="score-entry-meta" id="scoreEntryHole">HOLE 1 · PAR 4</div>
+    </div>
+    <div class="score-entry-body">
+      <div class="score-keypad" id="scoreKeypad">
+        <button type="button" data-score="1">1</button><button type="button" data-score="2">2</button><button type="button" data-score="3">3</button>
+        <button type="button" data-score="4">4</button><button type="button" data-score="5">5</button><button type="button" data-score="6">6</button>
+        <button type="button" data-score="7">7</button><button type="button" data-score="8">8</button><button type="button" class="no-score" data-no-score>No score</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js?v=7"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 const $=selector=>document.querySelector(selector);
 const STORAGE_KEY='scoring-app-one-off-v1';
+const NO_SCORE=99;
 const state={course:null,players:[],hole:0,scores:[]};
 
 function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},(_,i)=>i+1)){
@@ -10,7 +11,7 @@ function showScreen(name){['course','players','score'].forEach(id=>$(`#${id}Scre
 function coursePar(){return state.course.pars.reduce((a,b)=>a+b,0)}
 function courseHandicap(index){return Math.round(index*(state.course.slope/113)+(state.course.rating-coursePar()))}
 function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(handicap/18)+(strokeIndex<=handicap%18?1:0);const plus=Math.abs(handicap);return -(Math.floor(plus/18)+(strokeIndex<=plus%18?1:0))}
-function pointsFor(gross,player,hole){if(!gross)return null;const net=gross-strokesOnHole(player.courseHandicap,state.course.indexes[hole]);return Math.max(0,2+(state.course.pars[hole]-net))}
+function pointsFor(gross,player,hole){if(gross==null)return null;if(gross===NO_SCORE)return 0;const net=gross-strokesOnHole(player.courseHandicap,state.course.indexes[hole]);return Math.max(0,2+(state.course.pars[hole]-net))}
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 
 let ocrLibraryPromise;
@@ -228,17 +229,28 @@ $('#playerRows').addEventListener('click',event=>{const button=event.target.clos
 $('#backToCourse').addEventListener('click',()=>showScreen('course'));
 $('#startRound').addEventListener('click',()=>{const error=$('#playerError');if(!state.players.length){error.textContent='Add at least one player.';return}if(state.players.some(p=>!p.name.trim()||p.courseHandicap==null)){error.textContent='Enter a name and valid WHS Handicap Index for every player.';return}state.players.forEach(p=>p.name=p.name.trim());state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';renderScore();showScreen('score');save()});
 
+let selectedPlayer=0,swipeStartX=0,swipeStartY=0,suppressPlayerClickUntil=0;
+function holeComplete(hole=state.hole){return state.scores.every(scores=>scores[hole]!=null)}
+function completedHoleCount(){return Array.from({length:18},(_,hole)=>holeComplete(hole)).filter(Boolean).length}
+function firstIncompleteHole(){const hole=Array.from({length:18},(_,i)=>i).find(i=>!holeComplete(i));return hole??17}
 function renderScore(){
-  const h=state.hole;state.players.forEach((_,i)=>{if(state.scores[i][h]==null)state.scores[i][h]=state.course.pars[h]});$('#holeCounter').textContent=`HOLE ${h+1} OF 18`;$('#holeTitle').textContent=`Hole ${h+1}`;$('#holeDetails').textContent=`Par ${state.course.pars[h]} · Stroke index ${state.course.indexes[h]}`;
-  $('#scorePlayers').innerHTML=state.players.map((p,i)=>{const gross=state.scores[i][h],strokes=strokesOnHole(p.courseHandicap,state.course.indexes[h]),points=pointsFor(gross,p,h);return `<article class="score-player"><div class="score-player-head"><div><h2>${p.name}</h2><span class="score-player-meta">CH ${p.courseHandicap} · ${strokes>0?`${strokes} stroke${strokes===1?'':'s'}`:strokes<0?`gives ${Math.abs(strokes)} stroke${strokes===-1?'':'s'}`:'no stroke'}</span></div><span class="score-player-meta">Total ${state.scores[i].reduce((sum,score,hole)=>sum+(pointsFor(score,p,hole)||0),0)} pts</span></div><div class="score-controls"><button data-change="-1" data-player="${i}">−</button><div class="gross-value"><strong>${gross??'–'}</strong><small>Gross score</small></div><button data-change="1" data-player="${i}">+</button></div><div class="points">${points==null?'Enter score':`${points} Stableford point${points===1?'':'s'}`}</div></article>`}).join('');
-  $('#previousHole').disabled=h===0;$('#nextHole').textContent=h===17?'Review round':'Next →';
-  $('#holeDots').innerHTML=Array.from({length:18},(_,i)=>`<button class="hole-dot ${i===h?'active':''} ${state.scores.every(scores=>scores[i]!=null)?'scored':''}" data-hole="${i}">${i+1}</button>`).join('');
+  const h=state.hole,complete=completedHoleCount();$('#holeCounter').textContent=`HOLE ${h+1} OF 18`;$('#holeTitle').textContent=`Hole ${h+1}`;$('#holeDetails').textContent=`Par ${state.course.pars[h]} · Stroke index ${state.course.indexes[h]}`;$('#completedHoles').textContent=`${complete}/18`;$('#scoreProgress').style.width=`${complete/18*100}%`;
+  $('#scorePlayers').innerHTML=state.players.map((player,i)=>{const gross=state.scores[i][h],strokes=strokesOnHole(player.courseHandicap,state.course.indexes[h]),points=pointsFor(gross,player,h),total=state.scores[i].reduce((sum,score,hole)=>sum+(pointsFor(score,player,hole)||0),0);return `<button class="score-player ${gross!=null?'complete':''} ${i===selectedPlayer?'selected':''}" data-player="${i}"><span><span class="score-player-name">${escapeHtml(player.name)}</span><span class="score-player-detail">CH ${player.courseHandicap} · ${strokes>0?`${strokes} stroke${strokes===1?'':'s'}`:strokes<0?`gives ${Math.abs(strokes)}`:'no stroke'} · Total ${total} pts</span></span><span class="score-gross"><strong>${gross===NO_SCORE?'NS':gross??'—'}</strong><small>Gross</small></span><span class="score-points"><strong>${points??'—'}</strong><small>Points</small></span></button>`}).join('');
+  const limit=firstIncompleteHole();$('#holeDots').innerHTML=Array.from({length:18},(_,i)=>`<button class="hole-dot ${i===h?'active':''} ${holeComplete(i)?'scored':''} ${i>limit?'blocked':''}" data-hole="${i}" aria-disabled="${i>limit}">${i+1}</button>`).join('');
 }
-$('#scorePlayers').addEventListener('click',event=>{const button=event.target.closest('[data-change]');if(!button)return;const p=Number(button.dataset.player),change=Number(button.dataset.change),current=state.scores[p][state.hole]??state.course.pars[state.hole];state.scores[p][state.hole]=Math.max(1,current+change);renderScore();save()});
-$('#previousHole').addEventListener('click',()=>{if(state.hole>0){state.hole--;renderScore();save()}});
-$('#nextHole').addEventListener('click',()=>{if(state.hole<17){state.hole++;renderScore();save()}else $('#finishDialog').showModal()});
-$('#holeDots').addEventListener('click',event=>{const button=event.target.closest('[data-hole]');if(!button)return;state.hole=Number(button.dataset.hole);renderScore();save()});
-$('#finishRound').addEventListener('click',()=>$('#finishDialog').showModal());
+const scoreEntryDialog=$('#scoreEntryDialog');
+function updateRecordedScore(){const score=state.scores[selectedPlayer]?.[state.hole];document.querySelectorAll('#scoreKeypad button').forEach(key=>{const recorded=score===NO_SCORE?key.hasAttribute('data-no-score'):key.dataset.score===String(score);key.classList.toggle('recorded',recorded);key.setAttribute('aria-pressed',String(recorded))})}
+function openScoreEntry(){const player=state.players[selectedPlayer];$('#keypadPlayer').textContent=player.name;$('#scoreEntryHole').textContent=`HOLE ${state.hole+1} · PAR ${state.course.pars[state.hole]}`;updateRecordedScore();scoreEntryDialog.showModal()}
+function closeScoreEntry(){if(scoreEntryDialog.open)scoreEntryDialog.close()}
+function setGrossScore(gross){state.scores[selectedPlayer][state.hole]=gross;save();closeScoreEntry();const missing=state.scores.findIndex(scores=>scores[state.hole]==null);if(missing>=0)selectedPlayer=missing;renderScore();$('#scoreError').textContent=''}
+$('#scorePlayers').addEventListener('click',event=>{if(Date.now()<suppressPlayerClickUntil)return;const player=event.target.closest('[data-player]');if(!player)return;selectedPlayer=Number(player.dataset.player);renderScore();openScoreEntry()});
+$('#scoreKeypad').addEventListener('click',event=>{const key=event.target.closest('button');if(!key)return;if(key.dataset.score)setGrossScore(Number(key.dataset.score));else if(key.hasAttribute('data-no-score'))setGrossScore(NO_SCORE)});
+$('#closeScoreEntry').addEventListener('click',closeScoreEntry);scoreEntryDialog.addEventListener('cancel',event=>{event.preventDefault();closeScoreEntry()});
+function blockedAdvance(){if(holeComplete())return false;$('#scoreError').textContent='Enter a score for every player before moving to the next hole.';return true}
+function moveHole(change){if(change>0&&blockedAdvance())return;if(change>0&&state.hole===17){$('#finishDialog').showModal();return}state.hole=Math.max(0,Math.min(17,state.hole+change));selectedPlayer=Math.max(0,state.scores.findIndex(scores=>scores[state.hole]==null));$('#scoreError').textContent='';renderScore();save()}
+$('#holeDots').addEventListener('click',event=>{const button=event.target.closest('[data-hole]');if(!button)return;const target=Number(button.dataset.hole);if(target>firstIncompleteHole()){blockedAdvance();return}state.hole=target;selectedPlayer=Math.max(0,state.scores.findIndex(scores=>scores[state.hole]==null));$('#scoreError').textContent='';renderScore();save()});
+$('#scoreScreen').addEventListener('touchstart',event=>{const touch=event.touches[0];swipeStartX=touch.clientX;swipeStartY=touch.clientY},{passive:true});
+$('#scoreScreen').addEventListener('touchend',event=>{const touch=event.changedTouches[0],dx=touch.clientX-swipeStartX,dy=touch.clientY-swipeStartY;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.3)return;suppressPlayerClickUntil=Date.now()+500;if(dx<0)moveHole(1);else if(state.hole>0)moveHole(-1)},{passive:true});
 $('#cancelFinish').addEventListener('click',()=>$('#finishDialog').close());
 function clearRound(){localStorage.removeItem(STORAGE_KEY);location.reload()}
 $('#confirmFinish').addEventListener('click',clearRound);
