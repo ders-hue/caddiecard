@@ -128,39 +128,84 @@ function applyRecognizedText(text,blocks,previousRows=new Map()){
   return {rows,rowCount:rows.size,hasCompleteCard};
 }
 
-renderCourseRows();
-$('#takePhoto').addEventListener('click',()=>$('#scorecardPhoto').click());
-$('#scorecardPhoto').addEventListener('change',async event=>{
-  const file=event.target.files?.[0];if(!file)return;
-  const preview=$('#photoPreview');preview.src=URL.createObjectURL(file);preview.classList.remove('hidden');
-  const status=$('#scanStatus');
-  status.textContent='Preparing on-device text recognition… The first scan can take a little longer.';
-  let worker;
+const COURSE_API='https://scoring-app-api.ders-c54.workers.dev';
+const FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
+let selectedClub=null,searchTimer=null,searchRequest=0;
+
+function favourites(){
+  try{return JSON.parse(localStorage.getItem(FAVOURITES_KEY))||[]}catch{return []}
+}
+function saveFavourites(clubs){localStorage.setItem(FAVOURITES_KEY,JSON.stringify(clubs))}
+function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
+async function golfApi(path){
+  const response=await fetch(`${COURSE_API}${path}`);
+  if(!response.ok)throw new Error(response.status===429?'The course service request limit has been reached.':'Course information could not be loaded.');
+  const payload=await response.json();return payload.data??payload;
+}
+function clubButton(club){
+  const place=[club.city,club.county,club.postcode].filter(Boolean).filter((value,index,array)=>array.indexOf(value)===index).join(' · ');
+  return `<button class="club-choice" data-club-id="${escapeHtml(club.id)}"><span><strong>${escapeHtml(club.name)}</strong><small>${escapeHtml(place)}</small></span><span class="choice-arrow">›</span></button>`;
+}
+function renderFavourites(){
+  const clubs=favourites(),section=$('#favouritesSection');section.classList.toggle('hidden',!clubs.length);
+  $('#favouriteClubs').innerHTML=clubs.map(clubButton).join('');
+}
+function renderSearchResults(clubs){
+  $('#searchSection').classList.remove('hidden');
+  $('#clubResults').innerHTML=clubs.length?clubs.map(clubButton).join(''):'<p class="status">No matching golf clubs were found.</p>';
+}
+async function searchClubs(query){
+  const request=++searchRequest;$('#clubStatus').textContent='Searching…';
   try{
-    const Tesseract=await loadOcrLibrary();
-    worker=await Tesseract.createWorker('eng',1,{logger:message=>{
-      if(message.status==='recognizing text')status.textContent=`Reading scorecard… ${Math.round((message.progress||0)*100)}%`;
-    }});
-    await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_BLOCK,preserve_interword_spaces:'1'});
-    const preparedImage=await prepareOcrImage(file);
-    const result=await worker.recognize(preparedImage,{}, {text:true,blocks:true});
-    let applied=applyRecognizedText(result.data.text||'',result.data.blocks||[]);
-    if(!applied.hasCompleteCard){
-      const detailedImages=[cropCanvas(preparedImage,0,.58),cropCanvas(preparedImage,.42,.58)];
-      for(let i=0;i<detailedImages.length&&!applied.hasCompleteCard;i++){
-        status.textContent=`Reading ${i?'back':'front'} nine in more detail…`;
-        const detail=await worker.recognize(detailedImages[i],{}, {text:true,blocks:true});
-        applied=applyRecognizedText(detail.data.text||'',detail.data.blocks||[],applied.rows);
-      }
-    }
-    status.textContent=applied.hasCompleteCard
-      ?'All 18 hole rows were filled in. Check every value against the photograph. Enter the course name and selected tee if they are not printed on the card.'
-      :`Text recognition filled ${applied.rowCount} of 18 hole rows. Check those values and complete the remaining rows. Enter the course name and selected tee if they are not printed on the card.`;
-  }catch(error){
-    console.error('Scorecard recognition failed',error);
-    status.textContent='Automatic recognition could not finish. Check your connection, then retake the photo or enter the details below.';
-  }finally{if(worker)await worker.terminate()}
-});
+    const payload=await golfApi(`/clubs?search=${encodeURIComponent(query)}`);if(request!==searchRequest)return;
+    const clubs=Array.isArray(payload)?payload:(payload.clubs||[]);renderSearchResults(clubs);$('#clubStatus').textContent=`${clubs.length} club${clubs.length===1?'':'s'} found.`;
+  }catch(error){if(request===searchRequest)$('#clubStatus').textContent=error.message}
+}
+function updateFavouriteButton(){
+  const active=selectedClub&&favourites().some(club=>club.id===selectedClub.id),button=$('#toggleFavourite');
+  button.classList.toggle('active',Boolean(active));button.textContent=active?'★':'☆';button.setAttribute('aria-label',active?'Remove club from favourites':'Add club to favourites');
+}
+function normaliseCourses(payload){return Array.isArray(payload)?payload:(payload.courses?payload.courses:[payload])}
+async function selectClub(id){
+  const known=[...favourites()];document.querySelectorAll(`[data-club-id="${CSS.escape(id)}"]`).forEach(button=>{const strong=button.querySelector('strong');if(strong)known.push({id,name:strong.textContent})});
+  selectedClub=known.find(club=>club.id===id)||{id,name:'Selected golf club'};
+  $('#selectedClubName').textContent=selectedClub.name;$('#teeSection').classList.remove('hidden');$('#teeChoices').innerHTML='<p class="status">Loading courses and tees…</p>';updateFavouriteButton();
+  $('#teeSection').scrollIntoView({behavior:'smooth',block:'start'});
+  try{
+    const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));
+    const courses=await Promise.all(summary.filter(course=>course?.id).map(course=>golfApi(`/courses/${encodeURIComponent(course.id)}`)));
+    renderTeeChoices(courses);
+  }catch(error){$('#teeChoices').innerHTML=`<p class="validation">${escapeHtml(error.message)}</p>`}
+}
+function teeColour(colour){
+  const safe={white:'#fff',yellow:'#f3d638',red:'#d94b43',blue:'#4c7edb',black:'#222',green:'#4d9b57',orange:'#ef963c',purple:'#8c5db5'};
+  return safe[String(colour||'').toLowerCase()]||'#ddd';
+}
+function renderTeeChoices(courses){
+  const groups=courses.map(course=>{
+    const tees=(course.tee_sets||[]).filter(tee=>tee.holes?.length===18);
+    return `<section class="course-group"><h3>${escapeHtml(course.name||selectedClub.name)}</h3>${tees.map(tee=>`<button class="tee-choice" data-course-id="${escapeHtml(course.id)}" data-tee-id="${escapeHtml(tee.id)}"><span><strong>${escapeHtml(tee.name)} tees</strong><small>${escapeHtml(tee.gender||'')} · Par ${tee.par} · Rating ${tee.course_rating} · Slope ${tee.slope_rating}</small></span><span class="tee-colour" style="--tee-colour:${teeColour(tee.colour)}"></span></button>`).join('')||'<p class="status">No complete tee data is available for this course.</p>'}</section>`;
+  }).join('');
+  $('#teeChoices').innerHTML=groups||'<p class="validation">No complete tee data is available for this club.</p>';
+  $('#teeChoices')._courses=courses;
+}
+function selectTee(courseId,teeId){
+  const course=($('#teeChoices')._courses||[]).find(item=>item.id===courseId),tee=course?.tee_sets?.find(item=>item.id===teeId);if(!course||!tee)return;
+  $('#courseName').value=selectedClub.name;$('#teeName').value=course.name&&course.name!==selectedClub.name?`${course.name} · ${tee.name}`:tee.name;
+  $('#slopeRating').value=tee.slope_rating;$('#courseRating').value=tee.course_rating;
+  for(const hole of tee.holes){
+    const index=hole.hole_number-1,par=document.querySelector(`[data-par="${index}"]`),stroke=document.querySelector(`[data-si="${index}"]`);
+    if(par)par.value=hole.par;if(stroke)stroke.value=hole.stroke_index;
+  }
+  $('#courseError').textContent='';document.querySelector('.form-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+renderCourseRows();
+renderFavourites();
+$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Enter at least two characters.';$('#searchSection').classList.add('hidden');return}searchTimer=setTimeout(()=>searchClubs(query),350)});
+$('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Enter at least two characters.'}});
+document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]'),tee=event.target.closest('[data-tee-id]');if(club)selectClub(club.dataset.clubId);else if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+$('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0)clubs.splice(index,1);else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton()});
 
 $('#confirmCourse').addEventListener('click',()=>{
   const name=$('#courseName').value.trim(),tee=$('#teeName').value.trim(),slope=Number($('#slopeRating').value),rating=Number($('#courseRating').value),pars=[...document.querySelectorAll('[data-par]')].map(i=>Number(i.value)),indexes=[...document.querySelectorAll('[data-si]')].map(i=>Number(i.value)),error=$('#courseError');
