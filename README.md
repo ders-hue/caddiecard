@@ -1,4 +1,4 @@
-# Scoring App
+# CaddieCard
 
 A phone-first, buildless app for one-off golf rounds. It supports:
 

@@ -1,5 +1,6 @@
 const $=selector=>document.querySelector(selector);
-const STORAGE_KEY='scoring-app-one-off-v1';
+const STORAGE_KEY='caddiecard-one-off-v1';
+const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const NO_SCORE=99;
 const state={course:null,players:[],hole:0,scores:[]};
 
@@ -130,11 +131,12 @@ function applyRecognizedText(text,blocks,previousRows=new Map()){
 }
 
 const COURSE_API='https://scoring-app-api.ders-c54.workers.dev';
-const FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
+const FAVOURITES_KEY='caddiecard-favourite-clubs-v1';
+const LEGACY_FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
 let selectedClub=null,searchTimer=null,searchRequest=0;
 
 function favourites(){
-  try{return JSON.parse(localStorage.getItem(FAVOURITES_KEY))||[]}catch{return []}
+  try{const saved=JSON.parse(localStorage.getItem(FAVOURITES_KEY)||localStorage.getItem(LEGACY_FAVOURITES_KEY));if(saved&&!localStorage.getItem(FAVOURITES_KEY))saveFavourites(saved);return saved||[]}catch{return []}
 }
 function saveFavourites(clubs){localStorage.setItem(FAVOURITES_KEY,JSON.stringify(clubs))}
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
@@ -252,8 +254,8 @@ $('#holeDots').addEventListener('click',event=>{const button=event.target.closes
 $('#scoreScreen').addEventListener('touchstart',event=>{const touch=event.touches[0];swipeStartX=touch.clientX;swipeStartY=touch.clientY},{passive:true});
 $('#scoreScreen').addEventListener('touchend',event=>{const touch=event.changedTouches[0],dx=touch.clientX-swipeStartX,dy=touch.clientY-swipeStartY;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.3)return;suppressPlayerClickUntil=Date.now()+500;if(dx<0)moveHole(1);else if(state.hole>0)moveHole(-1)},{passive:true});
 $('#cancelFinish').addEventListener('click',()=>$('#finishDialog').close());
-function clearRound(){localStorage.removeItem(STORAGE_KEY);location.reload()}
+function clearRound(){localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_STORAGE_KEY);location.reload()}
 $('#confirmFinish').addEventListener('click',clearRound);
 $('#resetApp').addEventListener('click',()=>{if(confirm('Clear this one-off round and start again?'))clearRound()});
 
-try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));if(saved?.course){Object.assign(state,saved);if(state.scores?.length){renderScore();showScreen('score')}else{renderPlayers();showScreen('players')}}else addPlayer()}catch{addPlayer()}
+try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY));if(saved?.course){Object.assign(state,saved);save();if(state.scores?.length){renderScore();showScreen('score')}else{renderPlayers();showScreen('players')}}else addPlayer()}catch{addPlayer()}
