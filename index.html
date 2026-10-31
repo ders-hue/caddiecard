@@ -8,13 +8,24 @@
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
     <div class="splash-centre">
       <img src="logo.png" alt="CaddieCard">
       <p id="splashStatus">Waking the course caddie…</p>
+      <form class="splash-profile hidden" id="splashProfile">
+        <p class="splash-profile-kicker">YOUR PLAYER PROFILE</p>
+        <h2>Before we tee off…</h2>
+        <p class="splash-profile-copy">Add the name and WHS we should use for your scorecards.</p>
+        <div class="splash-profile-fields">
+          <label>Your name<input id="splashPlayerName" maxlength="40" autocomplete="name" placeholder="Your name"></label>
+          <label>WHS<input id="splashPlayerWhs" type="number" inputmode="decimal" min="0" max="36" step="0.1" placeholder="0.0"></label>
+        </div>
+        <p class="splash-profile-error" id="splashProfileError"></p>
+        <button type="submit">Save &amp; continue</button>
+      </form>
     </div>
     <small>Version: 0.0</small>
   </div>
@@ -150,6 +161,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=33"></script>
+<script src="app.js?v=34"></script>
 </body>
 </html>

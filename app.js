@@ -1,12 +1,14 @@
 const $=selector=>document.querySelector(selector);
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 function dismissSplash(){const splash=$('#appSplash');if(!splash||splash.classList.contains('splash-exit'))return;splash.classList.add('splash-exit');setTimeout(()=>splash.remove(),380)}
+function splashProfile(){try{const profile=JSON.parse(localStorage.getItem('caddiecard-settings-v1'))||{},name=profile.playerName?.trim()||profile.name?.trim()||'',whs=profile.whs===''||profile.whs==null?null:Number(profile.whs);return {name,whs:Number.isFinite(whs)?whs:null}}catch{return {name:'',whs:null}}}
+function showSplashProfile(){const splash=$('#appSplash'),profile=splashProfile();if(!splash)return;splash.classList.add('needs-profile');$('#splashStatus').classList.add('hidden');$('#splashProfile').classList.remove('hidden');$('#splashPlayerName').value=profile.name==='Your Name'?'':profile.name;$('#splashPlayerWhs').value=profile.whs??'';setTimeout(()=>{const field=!$('#splashPlayerName').value?$('#splashPlayerName'):$('#splashPlayerWhs');field.focus();field.select()},80)}
 function runSplash(){
   const messages=['Refreshing Cloudflare links…','Checking GitHub version…','Checking saved clubs…','Finding today’s pin positions…','Polishing the scorecard…','Waking the course caddie…'],status=$('#splashStatus');let last=-1;
   const nextMessage=()=>{let pick=Math.floor(Math.random()*messages.length);if(pick===last)pick=(pick+1)%messages.length;last=pick;if(status)status.textContent=messages[pick]};
-  nextMessage();const messageTimer=setInterval(nextMessage,430),hold=1500+Math.random()*1000;setTimeout(()=>{clearInterval(messageTimer);dismissSplash()},hold);
+  nextMessage();const messageTimer=setInterval(nextMessage,430),hold=1500+Math.random()*1000;setTimeout(()=>{clearInterval(messageTimer);const profile=splashProfile();if(!profile.name||profile.name==='Your Name'||profile.whs==null)showSplashProfile();else dismissSplash()},hold);
 }
-window.addEventListener('load',runSplash,{once:true});setTimeout(dismissSplash,5000);
+window.addEventListener('load',runSplash,{once:true});setTimeout(()=>{if(!$('#appSplash')?.classList.contains('needs-profile'))dismissSplash()},5000);
 const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
@@ -14,6 +16,8 @@ const PLAYER_MEMORY_KEY='caddiecard-player-memory-v1';
 const NO_SCORE=99;
 const state={course:null,format:null,handicapMode:'recommended',players:[],hole:0,scores:[]};
 const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
+
+$('#splashProfile').addEventListener('submit',event=>{event.preventDefault();const name=$('#splashPlayerName').value.trim(),rawWhs=$('#splashPlayerWhs').value,whs=rawWhs===''?null:Number(rawWhs),error=$('#splashProfileError');if(!name||name==='Your Name'){error.textContent='Enter the name you want on your scorecard.';$('#splashPlayerName').focus();return}if(whs==null||!Number.isFinite(whs)||whs<0||whs>36){error.textContent='Enter a WHS between 0 and 36.';$('#splashPlayerWhs').focus();return}localStorage.setItem(SETTINGS_KEY,JSON.stringify({playerName:name,whs}));if(!state.scores.length){ensurePlayerSlots();state.players[0].name=name;state.players[0].index=String(whs);const calculated=state.course?courseHandicap(whs):null;state.players[0].courseHandicap=calculated!=null&&calculated>=0&&calculated<=36?calculated:null;save();if(state.course&&!$('#playersScreen').classList.contains('hidden'))renderPlayers()}dismissSplash()});
 
 function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},(_,i)=>i+1)){
   $('#courseTable tbody').innerHTML=Array.from({length:18},(_,i)=>`<tr><td>${i+1}</td><td><input type="number" inputmode="numeric" min="3" max="6" value="${pars[i]??''}" data-par="${i}" aria-label="Par for hole ${i+1}"></td><td><input type="number" inputmode="numeric" min="1" max="18" value="${indexes[i]??''}" data-si="${i}" aria-label="Stroke index for hole ${i+1}"></td></tr>`).join('');
