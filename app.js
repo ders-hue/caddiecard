@@ -2,6 +2,7 @@ const $=selector=>document.querySelector(selector);
 const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
+const PLAYER_MEMORY_KEY='caddiecard-player-memory-v1';
 const NO_SCORE=99;
 const state={course:null,players:[],hole:0,scores:[]};
 
@@ -230,7 +231,7 @@ function selectTee(courseId,teeId){
   const name=selectedClub.name,displayName=tee.name.trim(),teeName=course.name&&course.name!==selectedClub.name?`${course.name} · ${displayName}`:displayName,slope=Number(tee.slope_rating),rating=Number(tee.course_rating);
   const validIndexes=[...indexes].sort((a,b)=>a-b).every((value,index)=>value===index+1);
   if(holes.length!==18||pars.some(value=>!Number.isInteger(value)||value<3||value>6)||!validIndexes||!Number.isFinite(rating)||rating<40||rating>90||!Number.isInteger(slope)||slope<55||slope>155){$('#teeChoices').insertAdjacentHTML('beforeend','<p class="validation">This tee does not have a complete scorecard.</p>');return}
-  state.course={name,tee:teeName,slope,rating,pars,indexes};renderPlayers();showScreen('players');save();
+  state.course={name,tee:teeName,slope,rating,pars,indexes};ensurePlayerSlots();state.players.forEach(player=>{const whs=Number(player.index);if(player.index!==''&&Number.isFinite(whs)&&whs>=0&&whs<=36){const calculated=courseHandicap(whs);player.courseHandicap=calculated>=0&&calculated<=36?calculated:null}else player.courseHandicap=null});renderPlayers();showScreen('players');save();
 }
 
 renderFavourites();
@@ -247,15 +248,15 @@ function emptyPlayer(name=''){return {name,index:'',courseHandicap:null}}
 function ensurePlayerSlots(){while(state.players.length<4)state.players.push(emptyPlayer());state.players=state.players.slice(0,4);if(!state.players[0].name){const profile=settingsProfile();state.players[0].name=profile.playerName;if(profile.whs!=null){state.players[0].index=String(profile.whs);if(state.course){const calculated=courseHandicap(profile.whs);state.players[0].courseHandicap=calculated>=0&&calculated<=36?calculated:null}}}}
 let rememberedPlayers=[],nameLookupTimer=null;
 const playerSaveTimers=new Map();
-async function playerApi(path,options){const response=await fetch(`${COURSE_API}${path}`,options);if(!response.ok)throw new Error('Player memory is unavailable.');const payload=await response.json();return payload.data??payload}
+function storedPlayers(){try{const players=JSON.parse(localStorage.getItem(PLAYER_MEMORY_KEY));return Array.isArray(players)?players:[]}catch{return []}}
 function renderRememberedNames(){$('#rememberedNames').innerHTML=rememberedPlayers.map(player=>`<option value="${escapeHtml(player.name)}"></option>`).join('')}
-async function loadRememberedNames(query=''){try{const payload=await playerApi(`/players?search=${encodeURIComponent(query)}`);rememberedPlayers=Array.isArray(payload)?payload:(payload.players||[]);renderRememberedNames();return rememberedPlayers}catch{return []}}
+function loadRememberedNames(query=''){const needle=query.trim().toLocaleLowerCase();rememberedPlayers=storedPlayers().filter(player=>!needle||player.name.toLocaleLowerCase().includes(needle)).slice(0,20);renderRememberedNames();return rememberedPlayers}
 function applyRememberedPlayer(slot){
   const player=state.players[slot],remembered=rememberedPlayers.find(item=>item.name.toLocaleLowerCase()===player.name.trim().toLocaleLowerCase());if(!remembered||remembered.whs==null)return;
   if(Number(remembered.whs)<0||Number(remembered.whs)>36)return;
   player.index=String(remembered.whs);player.courseHandicap=courseHandicap(Number(remembered.whs));const row=document.querySelector(`[data-player-row="${slot}"]`);if(row){row.querySelector('[data-player-index]').value=player.index;row.querySelector('[data-player-course]').value=player.courseHandicap}
 }
-function queueRememberedPlayerSave(slot){clearTimeout(playerSaveTimers.get(slot));playerSaveTimers.set(slot,setTimeout(async()=>{const player=state.players[slot],name=player.name.trim(),whs=player.index===''?null:Number(player.index);if(!name||whs==null||!Number.isFinite(whs)||whs<0||whs>36)return;try{await playerApi('/players',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,whs})})}catch{}finally{playerSaveTimers.delete(slot)}},500))}
+function queueRememberedPlayerSave(slot){clearTimeout(playerSaveTimers.get(slot));playerSaveTimers.set(slot,setTimeout(()=>{const player=state.players[slot],name=player.name.trim(),whs=player.index===''?null:Number(player.index);if(!name||whs==null||!Number.isFinite(whs)||whs<0||whs>36){playerSaveTimers.delete(slot);return}const players=storedPlayers(),match=players.findIndex(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()),saved={name,whs,updatedAt:Date.now()};if(match>=0)players.splice(match,1);players.unshift(saved);localStorage.setItem(PLAYER_MEMORY_KEY,JSON.stringify(players.slice(0,100)));playerSaveTimers.delete(slot)},500))}
 function renderPlayers(){
   ensurePlayerSlots();$('#selectedCourse').textContent=`${state.course.name} · ${state.course.tee} tees · Par ${coursePar()} · Slope ${state.course.slope}`;
   $('#playerRows').innerHTML=state.players.map((player,i)=>`<article class="player-row" data-player-row="${i}"><label class="player-name">Name<input value="${escapeHtml(player.name)}" data-player-name="${i}" maxlength="40" autocomplete="off" list="rememberedNames" placeholder="Player ${i+1}"></label><label class="player-whs">WHS<input type="number" inputmode="decimal" min="0" max="36" step="0.1" value="${escapeHtml(player.index)}" data-player-index="${i}"></label><label class="player-course">Course<input type="text" inputmode="numeric" pattern="[0-9]*" value="${player.courseHandicap??''}" data-player-course="${i}" aria-label="Course Handicap for player ${i+1}"></label><button class="remove-player" data-clear-player="${i}" aria-label="Clear player ${i+1}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="remove-cross-shadow" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross-highlight" d="M7.8 7.3l3.7 3.7M16.2 7.3L12.5 11"/></svg></button></article>`).join('');loadRememberedNames();
