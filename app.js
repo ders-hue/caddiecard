@@ -42,15 +42,77 @@ function scorecardRowsFromText(text){
   return rows;
 }
 
-function applyRecognizedText(text){
-  const rows=scorecardRowsFromText(text);
+function wordsFromBlocks(blocks=[]){
+  return blocks.flatMap(block=>(block.paragraphs||[]).flatMap(paragraph=>(paragraph.lines||[]).flatMap(line=>line.words||[])));
+}
+
+function scorecardRowsFromWords(words){
+  const numeric=words.map(word=>{
+    const cleaned=word.text.trim().replace(/[|Il]/g,'1').replace(/[^\d.]/g,'');
+    return {...word,value:/^\d+(?:\.\d+)?$/.test(cleaned)?Number(cleaned):NaN};
+  }).filter(word=>Number.isFinite(word.value)&&word.bbox);
+  if(!numeric.length)return new Map();
+  const pageWidth=Math.max(...numeric.map(word=>word.bbox.x1));
+  const candidates=numeric.filter(word=>Number.isInteger(word.value)&&word.value>=1&&word.value<=18);
+  const columns=[];
+  for(const word of candidates){
+    const x=(word.bbox.x0+word.bbox.x1)/2;
+    let column=columns.find(item=>Math.abs(item.x-x)<pageWidth*.025);
+    if(!column){column={x,words:[]};columns.push(column)}
+    column.words.push(word);column.x=column.words.reduce((sum,item)=>sum+(item.bbox.x0+item.bbox.x1)/2,0)/column.words.length;
+  }
+  const holeColumn=columns
+    .filter(column=>new Set(column.words.map(word=>word.value)).size>=6)
+    .sort((a,b)=>a.x-b.x)[0];
+  if(!holeColumn)return new Map();
+  const rows=new Map();
+  for(const holeWord of holeColumn.words.sort((a,b)=>a.value-b.value)){
+    const hole=holeWord.value;if(rows.has(hole))continue;
+    const y=(holeWord.bbox.y0+holeWord.bbox.y1)/2;
+    const height=Math.max(10,holeWord.bbox.y1-holeWord.bbox.y0);
+    const row=numeric.filter(word=>{
+      const wordY=(word.bbox.y0+word.bbox.y1)/2;
+      return Math.abs(wordY-y)<=height*.8&&word.bbox.x0>holeWord.bbox.x1;
+    }).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+    const strokePosition=[...row].reverse().findIndex(word=>Number.isInteger(word.value)&&word.value>=1&&word.value<=18);
+    if(strokePosition<0)continue;
+    const strokeWord=row[row.length-1-strokePosition];
+    const par=[...row.filter(word=>word.bbox.x0<strokeWord.bbox.x0)].reverse().find(word=>Number.isInteger(word.value)&&word.value>=3&&word.value<=6);
+    if(par)rows.set(hole,{par:par.value,strokeIndex:strokeWord.value});
+  }
+  return rows;
+}
+
+function prepareOcrImage(file){
+  return new Promise((resolve,reject)=>{
+    const image=new Image(),url=URL.createObjectURL(file);
+    image.onload=()=>{
+      const scale=Math.min(3,2400/image.naturalWidth);
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);
+      const context=canvas.getContext('2d',{willReadFrequently:true});
+      context.drawImage(image,0,0,canvas.width,canvas.height);
+      const pixels=context.getImageData(0,0,canvas.width,canvas.height);
+      for(let i=0;i<pixels.data.length;i+=4){
+        const gray=.299*pixels.data[i]+.587*pixels.data[i+1]+.114*pixels.data[i+2];
+        const contrasted=Math.max(0,Math.min(255,(gray-128)*1.65+150));
+        pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=contrasted;
+      }
+      context.putImageData(pixels,0,0);URL.revokeObjectURL(url);resolve(canvas);
+    };
+    image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error('Image could not be prepared'))};
+    image.src=url;
+  });
+}
+
+function applyRecognizedText(text,blocks){
+  const textRows=scorecardRowsFromText(text),positionedRows=scorecardRowsFromWords(wordsFromBlocks(blocks));
+  const rows=positionedRows.size>=textRows.size?positionedRows:textRows;
   const recognized=[...rows.values()];
   const hasCompleteCard=rows.size===18&&new Set(recognized.map(row=>row.strokeIndex)).size===18;
-  if(hasCompleteCard){
-    for(let hole=1;hole<=18;hole++){
-      document.querySelector(`[data-par="${hole-1}"]`).value=rows.get(hole).par;
-      document.querySelector(`[data-si="${hole-1}"]`).value=rows.get(hole).strokeIndex;
-    }
+  for(const [hole,row] of rows){
+    document.querySelector(`[data-par="${hole-1}"]`).value=row.par;
+    document.querySelector(`[data-si="${hole-1}"]`).value=row.strokeIndex;
   }
   const slopeMatch=text.match(/slope(?:\s+rating)?\D{0,12}(\d{2,3})/i);
   const ratingMatch=text.match(/(?:course\s+)?rating\D{0,12}(\d{2}(?:\.\d)?)/i);
@@ -72,8 +134,10 @@ $('#scorecardPhoto').addEventListener('change',async event=>{
     worker=await Tesseract.createWorker('eng',1,{logger:message=>{
       if(message.status==='recognizing text')status.textContent=`Reading scorecard… ${Math.round((message.progress||0)*100)}%`;
     }});
-    const result=await worker.recognize(file);
-    const applied=applyRecognizedText(result.data.text||'');
+    await worker.setParameters({tessedit_pageseg_mode:Tesseract.PSM.SINGLE_BLOCK,preserve_interword_spaces:'1'});
+    const preparedImage=await prepareOcrImage(file);
+    const result=await worker.recognize(preparedImage,{}, {text:true,blocks:true});
+    const applied=applyRecognizedText(result.data.text||'',result.data.blocks||[]);
     status.textContent=applied.hasCompleteCard
       ?'Scorecard details filled in. Check every value against the photograph before continuing.'
       :`Text recognition found ${applied.rowCount} of 18 hole rows. Check and complete the details below against the photograph.`;
