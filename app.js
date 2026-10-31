@@ -1,20 +1,29 @@
 const $=selector=>document.querySelector(selector);
+if('scrollRestoration' in history)history.scrollRestoration='manual';
 const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
 const PLAYER_MEMORY_KEY='caddiecard-player-memory-v1';
 const NO_SCORE=99;
-const state={course:null,players:[],hole:0,scores:[]};
+const state={course:null,format:null,handicapMode:'recommended',players:[],hole:0,scores:[]};
+const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
 
 function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},(_,i)=>i+1)){
   $('#courseTable tbody').innerHTML=Array.from({length:18},(_,i)=>`<tr><td>${i+1}</td><td><input type="number" inputmode="numeric" min="3" max="6" value="${pars[i]??''}" data-par="${i}" aria-label="Par for hole ${i+1}"></td><td><input type="number" inputmode="numeric" min="1" max="18" value="${indexes[i]??''}" data-si="${i}" aria-label="Stroke index for hole ${i+1}"></td></tr>`).join('');
 }
 
-function showScreen(name){['course','tee','players','score'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name))}
+function showScreen(name){['course','tee','format','players','score'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name));window.scrollTo({top:0,behavior:'auto'})}
 function coursePar(){return state.course.pars.reduce((a,b)=>a+b,0)}
 function courseHandicap(index){return Math.round(index*(state.course.slope/113)+(state.course.rating-coursePar()))}
 function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(handicap/18)+(strokeIndex<=handicap%18?1:0);const plus=Math.abs(handicap);return -(Math.floor(plus/18)+(strokeIndex<=plus%18?1:0))}
-function pointsFor(gross,player,hole){if(gross==null)return null;if(gross===NO_SCORE)return 0;const net=gross-strokesOnHole(player.courseHandicap,state.course.indexes[hole]);return Math.max(0,2+(state.course.pars[hole]-net))}
+function pointsFor(gross,player,hole,handicap=player.courseHandicap){if(gross==null)return null;if(gross===NO_SCORE)return 0;const net=gross-strokesOnHole(handicap,state.course.indexes[hole]);return Math.max(0,2+(state.course.pars[hole]-net))}
+function playerCount(){return FORMAT_CONFIG[state.format]?.players||4}
+function playingHandicaps(){
+  const courseHandicaps=state.players.map(player=>Number(player.courseHandicap)||0);
+  if(state.format==='stableford'||state.format==='fourtwenty'||state.handicapMode==='full')return courseHandicaps;
+  const lowest=Math.min(...courseHandicaps),allowance=state.format==='fourball'?0.9:1;
+  return courseHandicaps.map(handicap=>Math.round((handicap-lowest)*allowance));
+}
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
 
 let ocrLibraryPromise;
@@ -230,7 +239,7 @@ function selectTee(courseId,teeId){
   const name=selectedClub.name,displayName=tee.name.trim(),teeName=course.name&&course.name!==selectedClub.name?`${course.name} · ${displayName}`:displayName,slope=Number(tee.slope_rating),rating=Number(tee.course_rating);
   const validIndexes=[...indexes].sort((a,b)=>a-b).every((value,index)=>value===index+1);
   if(holes.length!==18||pars.some(value=>!Number.isInteger(value)||value<3||value>6)||!validIndexes||!Number.isFinite(rating)||rating<40||rating>90||!Number.isInteger(slope)||slope<55||slope>155){$('#teeChoices').insertAdjacentHTML('beforeend','<p class="validation">This tee does not have a complete scorecard.</p>');return}
-  state.course={name,tee:teeName,slope,rating,pars,indexes};ensurePlayerSlots();state.players.forEach(player=>{const whs=Number(player.index);if(player.index!==''&&Number.isFinite(whs)&&whs>=0&&whs<=36){const calculated=courseHandicap(whs);player.courseHandicap=calculated>=0&&calculated<=36?calculated:null}else player.courseHandicap=null});renderPlayers();showScreen('players');save();
+  state.course={name,tee:teeName,slope,rating,pars,indexes};state.format=null;state.handicapMode='recommended';ensurePlayerSlots();state.players.forEach(player=>{const whs=Number(player.index);if(player.index!==''&&Number.isFinite(whs)&&whs>=0&&whs<=36){const calculated=courseHandicap(whs);player.courseHandicap=calculated>=0&&calculated<=36?calculated:null}else player.courseHandicap=null});showScreen('format');save();
 }
 
 renderFavourites();
@@ -239,13 +248,15 @@ $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#s
 document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
 $('#teeChoices').addEventListener('click',event=>{const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
+$('#backToTees').addEventListener('click',()=>showScreen('tee'));
+document.querySelector('.format-list').addEventListener('click',event=>{const button=event.target.closest('[data-format]');if(!button)return;state.format=button.dataset.format;state.handicapMode='recommended';ensurePlayerSlots();renderPlayers();showScreen('players');save()});
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
 
 function settingsProfile(){try{const settings=JSON.parse(localStorage.getItem(SETTINGS_KEY))||{},whs=settings.whs===''||settings.whs==null?null:Number(settings.whs);return {playerName:settings.playerName?.trim()||settings.name?.trim()||'Your Name',whs:Number.isFinite(whs)&&whs>=0&&whs<=36?whs:null}}catch{return {playerName:'Your Name',whs:null}}}
 function settingsPlayerName(){return settingsProfile().playerName}
 function emptyPlayer(name=''){return {name,index:'',courseHandicap:null}}
-function ensurePlayerSlots(){while(state.players.length<4)state.players.push(emptyPlayer());state.players=state.players.slice(0,4);if(!state.players[0].name){const profile=settingsProfile();state.players[0].name=profile.playerName;if(profile.whs!=null){state.players[0].index=String(profile.whs);if(state.course){const calculated=courseHandicap(profile.whs);state.players[0].courseHandicap=calculated>=0&&calculated<=36?calculated:null}}}}
+function ensurePlayerSlots(){if(!state.scores?.length){while(state.players.length<4)state.players.push(emptyPlayer());state.players=state.players.slice(0,4)}if(!state.players[0]?.name){const profile=settingsProfile();if(!state.players[0])state.players[0]=emptyPlayer();state.players[0].name=profile.playerName;if(profile.whs!=null){state.players[0].index=String(profile.whs);if(state.course){const calculated=courseHandicap(profile.whs);state.players[0].courseHandicap=calculated>=0&&calculated<=36?calculated:null}}}}
 let rememberedPlayers=[],nameLookupTimer=null;
 const playerSaveTimers=new Map();
 function storedPlayers(){try{const players=JSON.parse(localStorage.getItem(PLAYER_MEMORY_KEY));return Array.isArray(players)?players:[]}catch{return []}}
@@ -257,9 +268,16 @@ function applyRememberedPlayer(slot){
   player.index=String(remembered.whs);player.courseHandicap=courseHandicap(Number(remembered.whs));const row=document.querySelector(`[data-player-row="${slot}"]`);if(row){row.querySelector('[data-player-index]').value=player.index;row.querySelector('[data-player-course]').value=player.courseHandicap}
 }
 function queueRememberedPlayerSave(slot){clearTimeout(playerSaveTimers.get(slot));playerSaveTimers.set(slot,setTimeout(()=>{const player=state.players[slot],name=player.name.trim(),whs=player.index===''?null:Number(player.index);if(!name||whs==null||!Number.isFinite(whs)||whs<0||whs>36){playerSaveTimers.delete(slot);return}const players=storedPlayers(),match=players.findIndex(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()),saved={name,whs,updatedAt:Date.now()};if(match>=0)players.splice(match,1);players.unshift(saved);localStorage.setItem(PLAYER_MEMORY_KEY,JSON.stringify(players.slice(0,100)));playerSaveTimers.delete(slot)},500))}
+function handicapRuleText(){
+  if(state.format==='fourball')return state.handicapMode==='full'?'Full handicap · 100% · no differential':'Recommended · 90% from lowest';
+  if(state.format==='matchplay')return state.handicapMode==='full'?'Full handicap · 100% · no differential':'Recommended · 100% from lowest';
+  return '';
+}
 function renderPlayers(){
   ensurePlayerSlots();$('#selectedCourse').textContent=`${state.course.name} · ${state.course.tee} tees · Par ${coursePar()} · Slope ${state.course.slope}`;
-  $('#playerRows').innerHTML=state.players.map((player,i)=>`<article class="player-row" data-player-row="${i}"><label class="player-name">Name<input value="${escapeHtml(player.name)}" data-player-name="${i}" maxlength="40" autocomplete="off" list="rememberedNames" placeholder="Player ${i+1}"></label><label class="player-whs">WHS<input type="number" inputmode="decimal" min="0" max="36" step="0.1" value="${escapeHtml(player.index)}" data-player-index="${i}"></label><label class="player-course">Course<input type="text" inputmode="numeric" pattern="[0-9]*" value="${player.courseHandicap??''}" data-player-course="${i}" aria-label="Course Handicap for player ${i+1}"></label><button class="remove-player" data-clear-player="${i}" aria-label="Clear player ${i+1}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="remove-cross-shadow" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross-highlight" d="M7.8 7.3l3.7 3.7M16.2 7.3L12.5 11"/></svg></button></article>`).join('');loadRememberedNames();
+  const needsChoice=state.format==='fourball'||state.format==='matchplay',rule=$('#handicapRule');rule.classList.toggle('hidden',!needsChoice);$('#handicapOptions').classList.add('hidden');
+  if(needsChoice){$('#handicapRuleName').textContent=handicapRuleText();const recommended=state.format==='fourball'?'Recommended · 90% from lowest':'Recommended · 100% from lowest';document.querySelector('[data-handicap-mode="recommended"]').textContent=recommended;document.querySelectorAll('[data-handicap-mode]').forEach(button=>button.classList.toggle('active',button.dataset.handicapMode===state.handicapMode))}
+  $('#playerRows').innerHTML=state.players.slice(0,playerCount()).map((player,i)=>{const teamHeading=state.format==='fourball'&&(i===0||i===2)?`<h2 class="team-heading"><span>Team ${i===0?'A':'B'}</span><small>${i===0?'Players 1 & 2':'Players 3 & 4'}</small></h2>`:'';return `${teamHeading}<article class="player-row" data-player-row="${i}"><label class="player-name">Name<input value="${escapeHtml(player.name)}" data-player-name="${i}" maxlength="40" autocomplete="off" list="rememberedNames" placeholder="Player ${i+1}"></label><label class="player-whs">WHS<input type="number" inputmode="decimal" min="0" max="36" step="0.1" value="${escapeHtml(player.index)}" data-player-index="${i}"></label><label class="player-course">Course<input type="text" inputmode="numeric" pattern="[0-9]*" value="${player.courseHandicap??''}" data-player-course="${i}" aria-label="Course Handicap for player ${i+1}"></label><button class="remove-player" data-clear-player="${i}" aria-label="Clear player ${i+1}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="remove-cross-shadow" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross-highlight" d="M7.8 7.3l3.7 3.7M16.2 7.3L12.5 11"/></svg></button></article>`}).join('');loadRememberedNames();
 }
 $('#playerRows').addEventListener('input',event=>{
   const i=Number(event.target.dataset.playerName??event.target.dataset.playerIndex??event.target.dataset.playerCourse);if(!Number.isInteger(i))return;const player=state.players[i];
@@ -269,16 +287,47 @@ $('#playerRows').addEventListener('input',event=>{
 });
 $('#playerRows').addEventListener('change',event=>{const i=Number(event.target.dataset.playerName??event.target.dataset.playerIndex);if(Number.isInteger(i))queueRememberedPlayerSave(i)});
 $('#playerRows').addEventListener('click',event=>{if(event.target.matches('[data-player-course]')){event.target.select();return}const button=event.target.closest('[data-clear-player]');if(!button)return;const i=Number(button.dataset.clearPlayer);state.players[i]=emptyPlayer(i===0?settingsPlayerName():'');renderPlayers();save()});
-$('#backToCourse').addEventListener('click',()=>showScreen('tee'));
-$('#startRound').addEventListener('click',()=>{const error=$('#playerError'),players=state.players.filter(player=>player.name.trim());if(!players.length){error.textContent='Enter at least one player.';return}if(players.some(player=>!Number.isInteger(Number(player.courseHandicap))||Number(player.courseHandicap)<0||Number(player.courseHandicap)>36)){error.textContent='Each named player needs a Course Handicap from 0 to 36.';return}state.players=players.map(player=>({...player,name:player.name.trim(),courseHandicap:Number(player.courseHandicap)}));state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';state.players.forEach((_,i)=>queueRememberedPlayerSave(i));renderScore();showScreen('score');save()});
+$('#changeHandicapRule').addEventListener('click',()=>$('#handicapOptions').classList.toggle('hidden'));
+$('#handicapOptions').addEventListener('click',event=>{const button=event.target.closest('[data-handicap-mode]');if(!button)return;state.handicapMode=button.dataset.handicapMode;renderPlayers();save()});
+$('#backToCourse').addEventListener('click',()=>showScreen('format'));
+$('#startRound').addEventListener('click',()=>{const error=$('#playerError'),available=state.players.slice(0,playerCount()),players=available.filter(player=>player.name.trim()),exact=state.format!=='stableford';if(!players.length){error.textContent='Enter at least one player.';return}if(exact&&players.length!==playerCount()){error.textContent=`${FORMAT_CONFIG[state.format].name} needs ${playerCount()} players.`;return}if(players.some(player=>player.courseHandicap==null||player.courseHandicap===''||!Number.isInteger(Number(player.courseHandicap))||Number(player.courseHandicap)<0||Number(player.courseHandicap)>36)){error.textContent='Each named player needs a Course Handicap from 0 to 36.';return}state.players=players.map(player=>({...player,name:player.name.trim(),courseHandicap:Number(player.courseHandicap)}));state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';state.players.forEach((_,i)=>queueRememberedPlayerSave(i));renderScore();showScreen('score');save()});
 
 let selectedPlayer=0,swipeStartX=0,swipeStartY=0,suppressPlayerClickUntil=0;
 function holeComplete(hole=state.hole){return state.scores.every(scores=>scores[hole]!=null)}
 function completedHoleCount(){return Array.from({length:18},(_,hole)=>holeComplete(hole)).filter(Boolean).length}
 function firstIncompleteHole(){const hole=Array.from({length:18},(_,i)=>i).find(i=>!holeComplete(i));return hole??17}
+function netFor(playerIndex,hole,handicaps=playingHandicaps()){
+  const gross=state.scores[playerIndex]?.[hole];if(gross==null)return null;if(gross===NO_SCORE)return Infinity;
+  return gross-strokesOnHole(handicaps[playerIndex],state.course.indexes[hole]);
+}
+function fourTwentyPoints(hole){
+  if(!holeComplete(hole))return Array(3).fill(null);const nets=state.players.map((_,i)=>netFor(i,hole));
+  if(nets[0]===nets[1]&&nets[1]===nets[2])return [2,2,2];
+  const order=[0,1,2].sort((a,b)=>nets[a]-nets[b]),points=[0,0,0];
+  if(nets[order[0]]===nets[order[1]]){points[order[0]]=3;points[order[1]]=3;return points}
+  if(nets[order[1]]===nets[order[2]]){points[order[0]]=4;points[order[1]]=1;points[order[2]]=1;return points}
+  points[order[0]]=4;points[order[1]]=2;return points;
+}
+function matchHoleWinner(hole){
+  if(!holeComplete(hole))return 0;const handicaps=playingHandicaps();
+  if(state.format==='fourball'){
+    const teamA=Math.min(netFor(0,hole,handicaps),netFor(1,hole,handicaps)),teamB=Math.min(netFor(2,hole,handicaps),netFor(3,hole,handicaps));return teamA===teamB?0:teamA<teamB?1:-1;
+  }
+  const first=netFor(0,hole,handicaps),second=netFor(1,hole,handicaps);return first===second?0:first<second?1:-1;
+}
+function matchStanding(throughHole=state.hole){return Array.from({length:throughHole+1},(_,hole)=>matchHoleWinner(hole)).reduce((sum,result)=>sum+result,0)}
+function matchStatus(){
+  const standing=matchStanding(),played=Array.from({length:state.hole+1},(_,hole)=>holeComplete(hole)).filter(Boolean).length;if(!standing)return played===18?'Match halved':'All square';
+  const leader=state.format==='fourball'?(standing>0?'Team A':'Team B'):(standing>0?state.players[0].name:state.players[1].name),lead=Math.abs(standing),remaining=18-played;
+  if(!remaining)return `${leader} wins ${lead} up`;if(lead>remaining)return `${leader} wins ${lead} & ${remaining}`;return `${leader} ${lead} up`;
+}
 function renderScore(){
-  const h=state.hole,complete=completedHoleCount();$('#holeCounter').textContent=`HOLE ${h+1} OF 18`;$('#holeTitle').textContent=`Hole ${h+1}`;$('#holeDetails').textContent=`Par ${state.course.pars[h]} · Stroke index ${state.course.indexes[h]}`;$('#completedHoles').textContent=`${complete}/18`;$('#scoreProgress').style.width=`${complete/18*100}%`;
-  $('#scorePlayers').innerHTML=state.players.map((player,i)=>{const gross=state.scores[i][h],strokes=strokesOnHole(player.courseHandicap,state.course.indexes[h]),points=pointsFor(gross,player,h),total=state.scores[i].reduce((sum,score,hole)=>sum+(pointsFor(score,player,hole)||0),0);return `<button class="score-player ${gross!=null?'complete':''} ${i===selectedPlayer?'selected':''}" data-player="${i}"><span><span class="score-player-name">${escapeHtml(player.name)}</span><span class="score-player-detail">CH ${player.courseHandicap} · ${strokes>0?`${strokes} stroke${strokes===1?'':'s'}`:strokes<0?`gives ${Math.abs(strokes)}`:'no stroke'} · Total ${total} pts</span></span><span class="score-gross"><strong>${gross===NO_SCORE?'NS':gross??'—'}</strong><small>Gross</small></span><span class="score-points"><strong>${points??'—'}</strong><small>Points</small></span></button>`}).join('');
+  const h=state.hole,complete=completedHoleCount(),handicaps=playingHandicaps(),isMatch=state.format==='matchplay'||state.format==='fourball';$('#holeCounter').textContent=`${FORMAT_CONFIG[state.format].name.toUpperCase()} · HOLE ${h+1} OF 18`;$('#holeTitle').textContent=`Hole ${h+1}`;$('#holeDetails').textContent=`Par ${state.course.pars[h]} · Stroke index ${state.course.indexes[h]}`;$('#completedHoles').textContent=isMatch?matchStatus():`${complete}/18`;$('#runningLabel').textContent=isMatch?'match':'complete';$('#scoreProgress').style.width=`${complete/18*100}%`;
+  $('#scorePlayers').innerHTML=state.players.map((player,i)=>{const gross=state.scores[i][h],playingHandicap=handicaps[i],strokes=strokesOnHole(playingHandicap,state.course.indexes[h]),strokeText=strokes>0?`${strokes} stroke${strokes===1?'':'s'}`:strokes<0?`gives ${Math.abs(strokes)}`:'no stroke';let value,label,detail;
+    if(state.format==='stableford'){value=pointsFor(gross,player,h,playingHandicap);const total=state.scores[i].reduce((sum,score,hole)=>sum+(pointsFor(score,player,hole,playingHandicap)||0),0);label='Points';detail=`CH ${player.courseHandicap} · ${strokeText} · Total ${total} pts`}
+    else if(state.format==='fourtwenty'){const holePoints=fourTwentyPoints(h),total=Array.from({length:18},(_,hole)=>fourTwentyPoints(hole)[i]||0).reduce((a,b)=>a+b,0);value=holePoints[i];label='4-2-0';detail=`CH ${player.courseHandicap} · ${strokeText} · Total ${total}`}
+    else{const net=netFor(i,h,handicaps);value=net===Infinity?'NS':net;label='Net';detail=`${state.format==='fourball'?`Team ${i<2?'A':'B'} · `:''}CH ${player.courseHandicap} · PH ${playingHandicap} · ${strokeText}`}
+    const teamHeading=state.format==='fourball'&&(i===0||i===2)?`<h2 class="score-team-heading">Team ${i===0?'A':'B'}</h2>`:'';return `${teamHeading}<button class="score-player ${gross!=null?'complete':''} ${i===selectedPlayer?'selected':''}" data-player="${i}"><span><span class="score-player-name">${escapeHtml(player.name)}</span><span class="score-player-detail">${detail}</span></span><span class="score-gross"><strong>${gross===NO_SCORE?'NS':gross??'—'}</strong><small>Gross</small></span><span class="score-points"><strong>${value??'—'}</strong><small>${label}</small></span></button>`}).join('');
   const limit=firstIncompleteHole();$('#holeDots').innerHTML=Array.from({length:18},(_,i)=>`<button class="hole-dot ${i===h?'active':''} ${holeComplete(i)?'scored':''} ${i>limit?'blocked':''}" data-hole="${i}" aria-disabled="${i>limit}">${i+1}</button>`).join('');
 }
 const scoreEntryDialog=$('#scoreEntryDialog');
@@ -306,4 +355,4 @@ $('#openProfileSettings').addEventListener('click',()=>{const profile=settingsPr
 $('#cancelProfileSettings').addEventListener('click',()=>{$('#profileSettingsDialog').close();$('#settingsDialog').showModal()});
 $('#saveProfileSettings').addEventListener('click',()=>{const playerName=$('#settingsPlayerName').value.trim()||'Your Name',rawWhs=$('#settingsPlayerWhs').value,whs=rawWhs===''?null:Number(rawWhs);if(whs!=null&&(!Number.isFinite(whs)||whs<0||whs>36)){ $('#settingsProfileError').textContent='WHS must be between 0 and 36.';return}localStorage.setItem(SETTINGS_KEY,JSON.stringify({playerName,whs}));ensurePlayerSlots();state.players[0].name=playerName;state.players[0].index=whs==null?'':String(whs);if(whs==null)state.players[0].courseHandicap=null;else if(state.course){const calculated=courseHandicap(whs);state.players[0].courseHandicap=calculated>=0&&calculated<=36?calculated:null}save();if(state.course&&!$('#playersScreen').classList.contains('hidden'))renderPlayers();$('#profileSettingsDialog').close()});
 
-try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY));if(saved?.course){Object.assign(state,saved);save();if(state.scores?.length){renderScore();showScreen('score')}else{renderPlayers();showScreen('players')}}else ensurePlayerSlots()}catch{ensurePlayerSlots()}
+try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||localStorage.getItem(LEGACY_STORAGE_KEY));if(saved?.course){Object.assign(state,saved);state.handicapMode=state.handicapMode||'recommended';if(state.scores?.length){state.format=state.format||'stableford';renderScore();showScreen('score')}else if(state.format){ensurePlayerSlots();renderPlayers();showScreen('players')}else{ensurePlayerSlots();showScreen('format')}save()}else ensurePlayerSlots()}catch{ensurePlayerSlots()}

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#143629">
-  <meta name="description" content="CaddieCard — quick one-off Stableford scoring">
+  <meta name="description" content="CaddieCard — quick golf scoring for popular formats">
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=28">
+  <link rel="stylesheet" href="styles.css?v=29">
 </head>
 <body>
   <header class="topbar">
@@ -24,7 +24,7 @@
 
   <main>
     <section class="screen" id="courseScreen">
-      <p class="step">STEP 1 OF 4</p>
+      <p class="step">STEP 1 OF 5</p>
       <h1>Select club</h1>
       <p class="lead">Choose your home or a saved club, or find somewhere different.</p>
 
@@ -48,7 +48,7 @@
 
     <section class="screen hidden" id="teeScreen">
       <button id="changeClub" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Back</span></button>
-      <p class="step">STEP 2 OF 4</p>
+      <p class="step">STEP 2 OF 5</p>
       <h1>Choose tee markers</h1>
       <div class="tee-club-context">
         <div><small>PLAYING AT</small><strong id="selectedClubName"></strong></div>
@@ -61,10 +61,31 @@
       <div id="teeChoices" class="choice-list"></div>
     </section>
 
+    <section class="screen hidden" id="formatScreen">
+      <button id="backToTees" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Back</span></button>
+      <p class="step">STEP 3 OF 5</p>
+      <h1>Today’s Format</h1>
+      <p class="lead">How are you playing today?</p>
+      <div class="format-list">
+        <button class="format-choice" type="button" data-format="stableford"><strong>Stableford</strong><span>(1–4 players)</span></button>
+        <button class="format-choice" type="button" data-format="fourball"><strong>4BBB</strong><span>(4 players)</span></button>
+        <button class="format-choice" type="button" data-format="matchplay"><strong>Matchplay</strong><span>(2 players)</span></button>
+        <button class="format-choice" type="button" data-format="fourtwenty"><strong>4-2-0</strong><span>(3 players)</span></button>
+      </div>
+    </section>
+
     <section class="screen hidden" id="playersScreen">
-      <p class="step">STEP 3 OF 4</p>
+      <p class="step">STEP 4 OF 5</p>
       <h1>Add players</h1>
       <p class="lead" id="selectedCourse"></p>
+      <section class="handicap-rule hidden" id="handicapRule">
+        <div><small>HANDICAP RULE</small><strong id="handicapRuleName"></strong></div>
+        <button type="button" id="changeHandicapRule">Change</button>
+      </section>
+      <div class="handicap-options hidden" id="handicapOptions">
+        <button type="button" data-handicap-mode="recommended"></button>
+        <button type="button" data-handicap-mode="full">Full handicap · 100% · no differential</button>
+      </div>
       <div id="playerRows" class="player-rows"></div>
       <datalist id="rememberedNames"></datalist>
       <p class="validation" id="playerError"></p>
@@ -72,7 +93,7 @@
     </section>
 
     <section class="screen hidden" id="scoreScreen">
-      <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><div class="running-total"><strong id="completedHoles">0/18</strong><small>complete</small></div></div>
+      <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><div class="running-total"><strong id="completedHoles">0/18</strong><small id="runningLabel">complete</small></div></div>
       <div class="progress"><span id="scoreProgress"></span></div>
       <div id="scorePlayers" class="score-players"></div>
       <p class="validation score-error" id="scoreError"></p>
@@ -122,6 +143,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
