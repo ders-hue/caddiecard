@@ -174,11 +174,10 @@ function storedGolfApi(path){try{const cache=JSON.parse(localStorage.getItem(GOL
 function storeGolfApi(path,payload){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},ttl=path.startsWith('/courses/')?7*864e5:path.includes('/courses')?864e5:15*60e3;cache[path]={payload,expires:Date.now()+ttl};localStorage.setItem(GOLF_CACHE_KEY,JSON.stringify(cache))}catch{}}
 async function requestGolfApi(path){
   for(let attempt=0;attempt<3;attempt++){
-    const separator=path.includes('?')?'&':'?';
-    const response=await fetch(`${COURSE_API}${path}${separator}_retry=${attempt}-${Date.now()}`,{cache:'no-store'});
+    const response=await fetch(`${COURSE_API}${path}`);
     if(response.ok){const payload=await response.json();return payload.data??payload}
     if(response.status!==429)throw new Error('Course information could not be loaded.');
-    if(attempt<2)await wait(750*(attempt+1));
+    if(attempt<2){const retryAfter=Number(response.headers.get('Retry-After'));await wait(Number.isFinite(retryAfter)&&retryAfter>0?Math.min(retryAfter*1000,5000):1000*(attempt+1))}
   }
   throw new Error('The course service is busy. Please try again in a moment.');
 }
@@ -202,9 +201,9 @@ function renderSearchResults(clubs){
   $('#clubResults').innerHTML=clubs.length?clubs.map(clubButton).join(''):'<p class="status">No matching golf clubs were found.</p>';
 }
 async function searchClubs(query){
-  const request=++searchRequest;$('#clubStatus').textContent='Searching…';
+  const request=++searchRequest,normalisedQuery=query.trim().replace(/\s+/g,' ').toLowerCase();$('#clubStatus').textContent='Searching…';
   try{
-    const payload=await golfApi(`/clubs?search=${encodeURIComponent(query)}`);if(request!==searchRequest)return;
+    const payload=await golfApi(`/clubs?search=${encodeURIComponent(normalisedQuery)}`);if(request!==searchRequest)return;
     const clubs=Array.isArray(payload)?payload:(payload.clubs||[]);renderSearchResults(clubs);$('#clubStatus').textContent=`${clubs.length} club${clubs.length===1?'':'s'} found.`;
   }catch(error){if(request===searchRequest)$('#clubStatus').textContent=error.message}
 }
@@ -256,7 +255,7 @@ function selectTee(courseId,teeId){
 }
 
 renderFavourites();
-$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),250)});
+$('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),650)});
 $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites()}});
 document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
 $('#teeChoices').addEventListener('click',event=>{const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
