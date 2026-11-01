@@ -11,3 +11,5 @@ A phone-first, buildless app for one-off golf rounds. It supports:
 - Temporary browser recovery only; finishing clears the round
 
 Open `index.html` in a modern browser, or use the published GitHub Pages app.
+
+The standalone `green-guide.html` page is the experimental Green Guide Lab. The repeatable course-vector extraction process is documented in `GREEN_VECTOR_WORKFLOW.md`.

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#143629">
+  <title>CaddieCard Green Guide Lab</title>
+  <style>
+    :root{--green:#143629;--green2:#245d45;--lime:#b9ee65;--paper:#fff;--bg:#eef2ed;--ink:#17231d;--muted:#69756e;--line:#ccd8cf;--red:#a93630}*{box-sizing:border-box}html,body{margin:0;max-width:100%;overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif}.topbar{display:flex;align-items:center;gap:11px;padding:9px 13px;background:linear-gradient(135deg,#0d2b20,#1d513b);border-bottom:2px solid var(--lime);color:#fff}.topbar img{width:50px;height:50px;object-fit:contain}.topbar strong,.topbar small{display:block}.topbar strong{font-size:20px}.topbar small{color:#d7e9df}.lab{width:min(520px,100%);margin:auto;padding:17px 13px 34px}.eyebrow{margin:0;color:var(--green2);font-size:11px;font-weight:850;letter-spacing:.11em}.heading{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:12px}.heading h1{margin:2px 0 0;font-size:31px;line-height:1}.heading span{color:var(--muted);font-size:12px}.hole-nav{display:grid;grid-template-columns:48px 1fr 48px;gap:8px;margin-bottom:10px}.hole-nav button,.hole-nav select,.tool{min-height:46px;border:1px solid var(--green2);border-radius:11px;background:#fff;color:var(--green);font:inherit;font-weight:700}.hole-nav select{padding:0 10px;text-align:center}.guide-card{padding:10px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 10px 28px #14362912}.green-stage{position:relative;width:min(100%,390px);margin:auto;touch-action:none;user-select:none;-webkit-touch-callout:none}.green-stage svg{display:block;width:100%;height:auto}.green-shape{fill:#b9dfa2;stroke:#245d45;stroke-width:1.15;filter:drop-shadow(0 3px 3px #14362922)}.orientation{fill:#245d45;font-size:5px;font-weight:900;letter-spacing:.14em;text-anchor:middle}.orientation-line{stroke:#7fa771;stroke-width:.7;stroke-dasharray:2 2}.break-path{fill:none;stroke-linecap:round;stroke-linejoin:round}.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.tool{min-height:42px;font-size:13px}.tool.active{border-color:var(--green);background:var(--green);color:#fff}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.actions button{min-height:43px;border-radius:11px;font:inherit;font-weight:650}.undo{border:1px solid var(--green);background:#fff;color:var(--green)}.clear{border:1px solid #dfaaa5;background:#fff6f5;color:var(--red)}.status{min-height:19px;margin:8px 2px 0;color:var(--muted);font-size:12px}.help{margin:12px 2px 0;color:var(--muted);font-size:13px}.help strong{color:var(--green)}.attribution{margin-top:13px;color:var(--muted);font-size:10px;text-align:center}.attribution a{color:var(--green2)}
+  </style>
+</head>
+<body>
+  <header class="topbar"><img src="caddiecard-icon.png" alt=""><div><strong>Green Guide Lab</strong><small>North Wilts Golf Club</small></div></header>
+  <main class="lab">
+    <div class="heading"><div><p class="eyebrow">VECTOR PROTOTYPE</p><h1 id="holeTitle">Hole 1</h1></div><span id="holeMeta">Loading…</span></div>
+    <div class="hole-nav"><button id="previousHole" aria-label="Previous hole">‹</button><select id="holeSelect" aria-label="Select hole"></select><button id="nextHole" aria-label="Next hole">›</button></div>
+    <section class="guide-card">
+      <div class="green-stage">
+        <svg id="greenCanvas" viewBox="0 0 100 150" role="img" aria-label="Green outline and personal break markings">
+          <defs>
+            <marker id="arrowMild" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 5 2.5 0 5z" fill="#3476b8"/></marker>
+            <marker id="arrowMedium" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 5 2.5 0 5z" fill="#d48a1d"/></marker>
+            <marker id="arrowStrong" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 5 2.5 0 5z" fill="#b83b32"/></marker>
+          </defs>
+          <text class="orientation" x="50" y="8">BACK</text><line class="orientation-line" x1="39" y1="11" x2="61" y2="11"/>
+          <polygon id="greenShape" class="green-shape" points="25,25 75,25 80,120 20,120"/>
+          <g id="markings"></g><g id="draftMarking"></g>
+          <line class="orientation-line" x1="39" y1="139" x2="61" y2="139"/><text class="orientation" x="50" y="146">FRONT</text>
+        </svg>
+      </div>
+      <div class="tools" id="strengthTools"><button class="tool active" data-strength="mild">Mild</button><button class="tool" data-strength="medium">Medium</button><button class="tool" data-strength="strong">Strong</button></div>
+      <div class="actions"><button class="undo" id="undoMark">Undo</button><button class="clear" id="clearMarks">Clear green</button></div>
+      <p class="status" id="status">Loading accurate OpenStreetMap green vectors…</p>
+    </section>
+    <p class="help"><strong>Draw the general break.</strong> Drag a finger across the green in the direction a putt will roll. Choose a strength before drawing. Markings save automatically on this browser.</p>
+    <p class="attribution">Green geometry © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ODbL.</p>
+  </main>
+  <script>
+    const OSM_URL='https://api.openstreetmap.org/api/0.6/map?bbox=-1.9811009,51.3970078,-1.9618541,51.4041234';
+    const STORAGE_KEY='caddiecard-green-guide-lab-north-wilts-v1';
+    const $=selector=>document.querySelector(selector);let holes={},currentHole=1,strength='mild',draft=null;
+    const styles={mild:{colour:'#3476b8',width:1.6},medium:{colour:'#d48a1d',width:2.5},strong:{colour:'#b83b32',width:3.5}};
+    function tagsOf(way){return Object.fromEntries([...way.querySelectorAll(':scope > tag')].map(tag=>[tag.getAttribute('k'),tag.getAttribute('v')]))}
+    function ordinalHole(name=''){return Number(name.match(/^\d+/)?.[0])||null}
+    function svgPoint(event){const svg=$('#greenCanvas'),point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const mapped=point.matrixTransform(svg.getScreenCTM().inverse());return {x:+mapped.x.toFixed(2),y:+mapped.y.toFixed(2)}}
+    function pathData(points){if(points.length<2)return '';if(points.length===2)return `M${points[0].x} ${points[0].y} L${points[1].x} ${points[1].y}`;let d=`M${points[0].x} ${points[0].y}`;for(let i=1;i<points.length-1;i++){const mid={x:(points[i].x+points[i+1].x)/2,y:(points[i].y+points[i+1].y)/2};d+=` Q${points[i].x} ${points[i].y} ${mid.x} ${mid.y}`}const last=points.at(-1);return `${d} L${last.x} ${last.y}`}
+    function savedGuides(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}}catch{return {}}}
+    function marksFor(hole=currentHole){return savedGuides()[hole]||[]}
+    function saveMarks(marks){const all=savedGuides();all[currentHole]=marks;localStorage.setItem(STORAGE_KEY,JSON.stringify(all))}
+    function pathElement(mark){const style=styles[mark.strength]||styles.mild;return `<path class="break-path" d="${pathData(mark.points)}" stroke="${style.colour}" stroke-width="${style.width}" marker-end="url(#arrow${mark.strength[0].toUpperCase()+mark.strength.slice(1)})"/>`}
+    function renderMarks(){const marks=marksFor();$('#markings').innerHTML=marks.map(pathElement).join('');$('#status').textContent=marks.length?`${marks.length} personal break marking${marks.length===1?'':'s'} saved on this device.`:'Draw on the green to add its general breaks.'}
+    function orientGreen(greenNodes,holeNodes){const latitude=greenNodes.reduce((sum,p)=>sum+p.lat,0)/greenNodes.length,cos=Math.cos(latitude*Math.PI/180),screen=point=>({x:point.lon*cos,y:-point.lat}),a=screen(holeNodes.at(-2)),b=screen(holeNodes.at(-1)),angle=-Math.PI/2-Math.atan2(b.y-a.y,b.x-a.x),raw=greenNodes.map(screen),centre={x:raw.reduce((s,p)=>s+p.x,0)/raw.length,y:raw.reduce((s,p)=>s+p.y,0)/raw.length},rotated=raw.map(p=>{const x=p.x-centre.x,y=p.y-centre.y;return {x:x*Math.cos(angle)-y*Math.sin(angle),y:x*Math.sin(angle)+y*Math.cos(angle)}}),xs=rotated.map(p=>p.x),ys=rotated.map(p=>p.y),width=Math.max(...xs)-Math.min(...xs),height=Math.max(...ys)-Math.min(...ys),scale=Math.min(72/width,108/height);return rotated.map(p=>({x:+(50+(p.x-(Math.min(...xs)+width/2))*scale).toFixed(2),y:+(74+(p.y-(Math.min(...ys)+height/2))*scale).toFixed(2)}))}
+    async function loadCourse(){try{const xmlText=await fetch(OSM_URL).then(response=>{if(!response.ok)throw new Error();return response.text()}),xml=new DOMParser().parseFromString(xmlText,'application/xml'),nodes=new Map([...xml.querySelectorAll('node')].map(node=>[node.getAttribute('id'),{lat:+node.getAttribute('lat'),lon:+node.getAttribute('lon')}])) ,ways=[...xml.querySelectorAll('way')],greens=new Map(),lines=new Map();ways.forEach(way=>{const tags=tagsOf(way),refs=[...way.querySelectorAll(':scope > nd')].map(nd=>nodes.get(nd.getAttribute('ref'))).filter(Boolean);if(tags.golf==='green'){const hole=ordinalHole(tags.name);if(hole)greens.set(hole,refs)}if(tags.golf==='hole'&&tags.ref)lines.set(+tags.ref,{nodes:refs,par:tags.par})});for(let hole=1;hole<=18;hole++){if(greens.has(hole)&&lines.has(hole))holes[hole]={outline:orientGreen(greens.get(hole),lines.get(hole).nodes),par:lines.get(hole).par}}if(Object.keys(holes).length!==18)throw new Error();$('#holeSelect').innerHTML=Array.from({length:18},(_,i)=>`<option value="${i+1}">Hole ${i+1}</option>`).join('');renderHole()}catch{$('#status').textContent='The North Wilts green vectors could not be loaded. Please try again.'}}
+    function renderHole(){const hole=holes[currentHole];if(!hole)return;$('#holeTitle').textContent=`Hole ${currentHole}`;$('#holeMeta').textContent=`Par ${hole.par} · accurate OSM outline`;$('#holeSelect').value=currentHole;$('#greenShape').setAttribute('points',hole.outline.map(p=>`${p.x},${p.y}`).join(' '));renderMarks()}
+    function changeHole(value){currentHole=Math.max(1,Math.min(18,value));renderHole()}
+    $('#previousHole').addEventListener('click',()=>changeHole(currentHole-1));$('#nextHole').addEventListener('click',()=>changeHole(currentHole+1));$('#holeSelect').addEventListener('change',event=>changeHole(+event.target.value));
+    $('#strengthTools').addEventListener('click',event=>{const button=event.target.closest('[data-strength]');if(!button)return;strength=button.dataset.strength;document.querySelectorAll('[data-strength]').forEach(item=>item.classList.toggle('active',item===button))});
+    const canvas=$('#greenCanvas');canvas.addEventListener('pointerdown',event=>{event.preventDefault();canvas.setPointerCapture(event.pointerId);draft={strength,points:[svgPoint(event)]}});canvas.addEventListener('pointermove',event=>{if(!draft)return;const point=svgPoint(event),last=draft.points.at(-1);if(Math.hypot(point.x-last.x,point.y-last.y)<1.3)return;draft.points.push(point);$('#draftMarking').innerHTML=pathElement(draft)});function finishDraft(){if(!draft)return;if(draft.points.length>2){const marks=marksFor();marks.push(draft);saveMarks(marks)}draft=null;$('#draftMarking').innerHTML='';renderMarks()}canvas.addEventListener('pointerup',finishDraft);canvas.addEventListener('pointercancel',()=>{draft=null;$('#draftMarking').innerHTML=''});canvas.addEventListener('contextmenu',event=>event.preventDefault());
+    $('#undoMark').addEventListener('click',()=>{const marks=marksFor();marks.pop();saveMarks(marks);renderMarks()});$('#clearMarks').addEventListener('click',()=>{if(!marksFor().length||!confirm(`Clear every personal marking from hole ${currentHole}?`))return;saveMarks([]);renderMarks()});
+    loadCourse();
+  </script>
+</body>
+</html>
