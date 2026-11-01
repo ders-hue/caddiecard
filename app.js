@@ -375,13 +375,13 @@ function closeScoreEntry(){if(scoreEntryDialog.open)scoreEntryDialog.close()}
 function setGrossScore(gross){state.scores[selectedPlayer][state.hole]=gross;save();closeScoreEntry();const missing=state.scores.findIndex(scores=>scores[state.hole]==null);if(missing>=0)selectedPlayer=missing;renderScore();$('#scoreError').textContent=''}
 $('#scorePlayers').addEventListener('click',event=>{if(Date.now()<suppressPlayerClickUntil)return;const player=event.target.closest('[data-player]');if(!player)return;selectedPlayer=Number(player.dataset.player);renderScore();openScoreEntry()});
 $('#scoreKeypad').addEventListener('click',event=>{const key=event.target.closest('button');if(!key)return;if(key.dataset.score)setGrossScore(Number(key.dataset.score));else if(key.hasAttribute('data-no-score'))setGrossScore(NO_SCORE)});
-function updateTestMode(){const button=document.querySelector('[data-no-score]');button.textContent=testMode?'AUTO':'No score';button.classList.toggle('auto-score',testMode);button.setAttribute('aria-label',testMode?'Automatically score every player on this hole':'No score')}
+function updateTestMode(){const button=document.querySelector('[data-no-score]'),status=$('#testModeStatus');button.textContent=testMode?'AUTO':'No score';button.classList.toggle('auto-score',testMode);button.setAttribute('aria-label',testMode?'Automatically score every player on this hole':'No score');if(status)status.textContent=testMode?'AUTO ENABLED':''}
 function autoScoreHole(){const par=Number(state.course.pars[state.hole]);state.scores.forEach(scores=>scores[state.hole]=par-1+Math.floor(Math.random()*4));save();closeScoreEntry();selectedPlayer=0;renderScore();$('#scoreError').textContent=''}
 document.querySelector('[data-no-score]').addEventListener('click',event=>{if(!testMode)return;event.stopImmediatePropagation();autoScoreHole()},{capture:true});
 const settingsTestLogo=$('#settingsTestLogo');
-function cancelTestModeHold(){clearTimeout(testModeTimer);testModeTimer=null}
-settingsTestLogo.addEventListener('pointerdown',event=>{event.preventDefault();settingsTestLogo.setPointerCapture?.(event.pointerId);cancelTestModeHold();testModeTimer=setTimeout(()=>{testMode=!testMode;updateTestMode();navigator.vibrate?.(60);testModeTimer=null},2000)});
-['pointerup','pointercancel','lostpointercapture'].forEach(type=>settingsTestLogo.addEventListener(type,cancelTestModeHold));
+function cancelTestModeHold(){clearTimeout(testModeTimer);testModeTimer=null;settingsTestLogo.classList.remove('test-mode-holding')}
+settingsTestLogo.addEventListener('pointerdown',event=>{event.preventDefault();cancelTestModeHold();settingsTestLogo.classList.add('test-mode-holding');testModeTimer=setTimeout(()=>{testMode=!testMode;updateTestMode();navigator.vibrate?.(60);testModeTimer=null;settingsTestLogo.classList.remove('test-mode-holding')},2000)});
+['pointerup','pointercancel'].forEach(type=>settingsTestLogo.addEventListener(type,cancelTestModeHold));
 settingsTestLogo.addEventListener('contextmenu',event=>event.preventDefault());settingsTestLogo.addEventListener('dragstart',event=>event.preventDefault());
 $('#toggleHoleClosed').addEventListener('click',()=>{const close=!holeClosed();state.scores.forEach(scores=>{if(close)scores[state.hole]=NO_SCORE;else if(scores[state.hole]===NO_SCORE)scores[state.hole]=null});selectedPlayer=0;$('#scoreError').textContent='';renderScore();save()});
 $('#closeScoreEntry').addEventListener('click',closeScoreEntry);scoreEntryDialog.addEventListener('cancel',event=>{event.preventDefault();closeScoreEntry()});
