@@ -15,7 +15,7 @@ const SETTINGS_KEY='caddiecard-settings-v1';
 const PLAYER_MEMORY_KEY='caddiecard-player-memory-v1';
 const NO_SCORE=99;
 const state={course:null,format:null,handicapMode:'recommended',players:[],hole:0,scores:[]};
-const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
+const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},greensomes:{name:'Greensomes',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
 
 function capitalisePlayerName(value){return value.trim().replace(/\s+/g,' ').replace(/(^|[\s'-])([a-z])/g,(_,separator,letter)=>separator+letter.toUpperCase())}
 $('#splashPlayerName').addEventListener('blur',event=>{event.target.value=capitalisePlayerName(event.target.value)});
@@ -169,17 +169,19 @@ function homeClub(){try{return JSON.parse(localStorage.getItem(HOME_CLUB_KEY))}c
 function saveHomeClub(club){if(club)localStorage.setItem(HOME_CLUB_KEY,JSON.stringify(club));else localStorage.removeItem(HOME_CLUB_KEY)}
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 const golfApiCache=new Map(),golfApiPending=new Map();
-const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
 function storedGolfApi(path){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},entry=cache[path];if(!entry||entry.expires<Date.now())return null;return entry.payload}catch{return null}}
 function storeGolfApi(path,payload){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},ttl=path.startsWith('/courses/')?7*864e5:path.includes('/courses')?864e5:15*60e3;cache[path]={payload,expires:Date.now()+ttl};localStorage.setItem(GOLF_CACHE_KEY,JSON.stringify(cache))}catch{}}
 async function requestGolfApi(path){
-  for(let attempt=0;attempt<3;attempt++){
-    const response=await fetch(`${COURSE_API}${path}`);
-    if(response.ok){const payload=await response.json();return payload.data??payload}
-    if(response.status!==429)throw new Error('Course information could not be loaded.');
-    if(attempt<2){const retryAfter=Number(response.headers.get('Retry-After'));await wait(Number.isFinite(retryAfter)&&retryAfter>0?Math.min(retryAfter*1000,5000):1000*(attempt+1))}
+  let response;
+  try{response=await fetch(`${COURSE_API}${path}`)}catch{throw new Error('The course service could not be reached. Check your connection and try again.')}
+  if(response.ok){
+    try{const payload=await response.json();return payload.data??payload}catch{throw new Error('The course service returned an invalid response. Please try again.')}
   }
-  throw new Error('The course service is busy. Please try again in a moment.');
+  if(response.status===429){
+    const retryAfter=Number(response.headers.get('Retry-After')),waitText=Number.isFinite(retryAfter)&&retryAfter>0?` Wait ${Math.ceil(retryAfter)} seconds, then try again.`:' Please wait a moment, then try again.';
+    throw new Error(`The course service rate limit was reached.${waitText}`);
+  }
+  throw new Error(`The course service returned an error (${response.status}). Please try again.`);
 }
 function golfApi(path){
   if(golfApiCache.has(path))return Promise.resolve(golfApiCache.get(path));
@@ -205,7 +207,7 @@ async function searchClubs(query){
   try{
     const payload=await golfApi(`/clubs?search=${encodeURIComponent(normalisedQuery)}`);if(request!==searchRequest)return;
     const clubs=Array.isArray(payload)?payload:(payload.clubs||[]);renderSearchResults(clubs);$('#clubStatus').textContent=`${clubs.length} club${clubs.length===1?'':'s'} found.`;
-  }catch(error){if(request===searchRequest)$('#clubStatus').textContent=error.message}
+  }catch(error){if(request===searchRequest)$('#clubStatus').innerHTML=`<span>${escapeHtml(error.message)}</span><button type="button" class="retry-button" data-retry-search>Retry</button>`}
 }
 function renderTeeLoading(){
   $('#teeChoices').innerHTML='<div class="tee-loading" role="status"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17"/><path d="M22 5a17 17 0 0 1 17 17"/></svg><div><strong>Finding tees and scorecards…</strong><small>This usually takes a moment.</small></div></div><div class="tee-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
@@ -228,9 +230,13 @@ async function selectClub(id,displayedName){
   $('#selectedClubName').textContent=selectedClub.name;renderTeeLoading();updateFavouriteButton();updateHomeButton();showScreen('tee');window.scrollTo({top:0,behavior:'smooth'});
   try{
     const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
-    const courses=await Promise.all(summary.filter(course=>course?.id).map(course=>golfApi(`/courses/${encodeURIComponent(course.id)}`)));
+    const courses=[];
+    for(const course of summary.filter(course=>course?.id)){
+      courses.push(await golfApi(`/courses/${encodeURIComponent(course.id)}`));
+      if(request!==clubSelectionRequest)return;
+    }
     if(request===clubSelectionRequest)renderTeeChoices(courses);
-  }catch(error){if(request===clubSelectionRequest)$('#teeChoices').innerHTML=`<p class="validation">${escapeHtml(error.message)}</p>`}
+  }catch(error){if(request===clubSelectionRequest)$('#teeChoices').innerHTML=`<div class="api-error-card"><p class="validation">${escapeHtml(error.message)}</p><button type="button" class="retry-button" data-retry-club>Retry loading course</button></div>`}
 }
 function teeColour(colour){
   const safe={white:'#fff',yellow:'#f3d638',red:'#d94b43',blue:'#4c7edb',black:'#222',green:'#4d9b57',orange:'#ef963c',purple:'#8c5db5'};
@@ -257,8 +263,8 @@ function selectTee(courseId,teeId){
 renderFavourites();
 $('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),650)});
 $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites()}});
-document.querySelector('.club-picker').addEventListener('click',event=>{const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
-$('#teeChoices').addEventListener('click',event=>{const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+document.querySelector('.club-picker').addEventListener('click',event=>{if(event.target.closest('[data-retry-search]')){const query=$('#clubSearch').value.trim();if(query.length>=2)searchClubs(query);return}const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
+$('#teeChoices').addEventListener('click',event=>{if(event.target.closest('[data-retry-club]')){if(selectedClub)selectClub(selectedClub.id,selectedClub.name);return}const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
 $('#backToTees').addEventListener('click',()=>showScreen('tee'));
 document.querySelector('.format-list').addEventListener('click',event=>{const button=event.target.closest('[data-format]');if(!button)return;state.format=button.dataset.format;state.handicapMode='recommended';ensurePlayerSlots();renderPlayers();showScreen('players');save()});

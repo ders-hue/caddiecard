@@ -7,8 +7,9 @@
   <meta name="description" content="CaddieCard — quick golf scoring for popular formats">
   <title>CaddieCard</title>
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
-  <link rel="apple-touch-icon" href="caddiecard-icon.png">
-  <link rel="stylesheet" href="styles.css?v=54">
+  <meta name="apple-mobile-web-app-title" content="CaddieCard">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css?v=56">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -81,11 +82,11 @@
     <section class="screen hidden" id="formatScreen">
       <button id="backToTees" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Back</span></button>
       <p class="step">STEP 3 OF 5</p>
-      <h1>Today’s Format</h1>
-      <p class="lead">How are you playing today?</p>
+      <h1>Select Format</h1>
       <div class="format-list">
         <button class="format-choice" type="button" data-format="stableford"><strong>Stableford</strong><span>(1–4 players)</span></button>
         <button class="format-choice" type="button" data-format="fourball"><strong>4BBB</strong><span>(4 players)</span></button>
+        <button class="format-choice" type="button" data-format="greensomes"><strong>Greensomes</strong><span>(4 players)</span></button>
         <button class="format-choice" type="button" data-format="matchplay"><strong>Matchplay</strong><span>(2 players)</span></button>
         <button class="format-choice" type="button" data-format="fourtwenty"><strong>4-2-0</strong><span>(3 players)</span></button>
       </div>
@@ -169,6 +170,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=54"></script>
+<script src="app.js?v=56"></script>
 </body>
 </html>
