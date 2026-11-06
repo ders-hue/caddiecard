@@ -197,7 +197,7 @@ async function requestGolfApi(path){
   }
   if(response.status===429){
     const retryAfter=Number(response.headers.get('Retry-After')),waitText=Number.isFinite(retryAfter)&&retryAfter>0?` Wait ${Math.ceil(retryAfter)} seconds, then try again.`:' Please wait a moment, then try again.';
-    throw new Error(`The course service rate limit was reached.${waitText}`);
+    throw new Error(`The club search service asked us to slow down.${waitText}`);
   }
   throw new Error(`The course service returned an error (${response.status}). Please try again.`);
 }
@@ -222,11 +222,19 @@ function renderSearchResults(clubs){
   $('#clubResults').innerHTML=clubs.length?clubs.map(clubButton).join(''):'<p class="status">No matching golf clubs were found.</p>';
 }
 async function searchClubs(query){
-  const request=++searchRequest,normalisedQuery=query.trim().replace(/\s+/g,' ').toLowerCase();$('#clubStatus').textContent='Searching…';
+  const request=++searchRequest,normalisedQuery=query.trim().replace(/\s+/g,' ').toLowerCase();
+  $('#clubStatus').textContent='Searching…';
+  $('#searchSection').classList.remove('hidden');
+  $('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';
   try{
     const payload=await golfApi(`/clubs?search=${encodeURIComponent(normalisedQuery)}`);if(request!==searchRequest)return;
     const clubs=Array.isArray(payload)?payload:(payload.clubs||[]);renderSearchResults(clubs);$('#clubStatus').textContent=`${clubs.length} club${clubs.length===1?'':'s'} found.`;
-  }catch(error){if(request===searchRequest)$('#clubStatus').innerHTML=`<span>${escapeHtml(error.message)}</span><button type="button" class="retry-button" data-retry-search>Retry</button>`}
+  }catch(error){
+    if(request===searchRequest){
+      $('#clubStatus').innerHTML=`<span>${escapeHtml(error.message)}</span><button type="button" class="retry-button" data-retry-search>Retry</button>`;
+      $('#clubResults').innerHTML='<p class="status">Search stopped.</p>';
+    }
+  }
 }
 function renderTeeLoading(){
   $('#teeChoices').innerHTML='<div class="tee-loading" role="status"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="17"/><path d="M22 5a17 17 0 0 1 17 17"/></svg><div><strong>Finding tees and scorecards…</strong><small>This usually takes a moment.</small></div></div><div class="tee-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
