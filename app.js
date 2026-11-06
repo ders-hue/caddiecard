@@ -380,7 +380,7 @@ function matchHoleWinner(hole){
   const first=netFor(0,hole,handicaps),second=netFor(1,hole,handicaps);return first===second?0:first<second?1:-1;
 }
 function matchStanding(throughHole=state.hole){return Array.from({length:throughHole+1},(_,hole)=>matchHoleWinner(hole)).reduce((sum,result)=>sum+result,0)}
-function teamMatchStatus(team){const standing=matchStanding()*(team==='A'?1:-1);return standing===0?'A/S':String(Math.abs(standing))}
+function teamMatchStatus(team){const standing=matchStanding()*(team==='A'?1:-1);return standing===0?'A/S':`${Math.abs(standing)} ${standing>0?'Up':'Down'}`}
 function teamMatchStatusClass(team){const standing=matchStanding()*(team==='A'?1:-1);return standing===0?'all-square':standing>0?'up':'down'}
 function playerMatchStatus(playerIndex){const standing=matchStanding()*(playerIndex===0?1:-1);return standing===0?'A/S':`${Math.abs(standing)}${standing>0?'up':'dn'}`}
 function matchStatus(){
