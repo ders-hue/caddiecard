@@ -306,7 +306,7 @@ function handicapRuleText(){
   return formatHandicapOptions().find(option=>option.mode===state.handicapMode)?.title||formatHandicapOptions()[0].title;
 }
 function renderHandicapChoices(){
-  $('#handicapIntro').textContent=`Select how handicaps should be applied for ${FORMAT_CONFIG[state.format].name}.`;
+  $('#handicapFormatTitle').textContent=FORMAT_CONFIG[state.format].name;
   $('#handicapChoices').innerHTML=formatHandicapOptions().map(option=>`<button type="button" class="handicap-choice ${option.mode===state.handicapMode?'active':''}" data-handicap-mode="${option.mode}"><strong>${escapeHtml(option.title)}</strong><span>${escapeHtml(option.description)}</span></button>`).join('');
 }
 function renderPlayers(){
