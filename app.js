@@ -191,7 +191,14 @@ function storedGolfApi(path){try{const cache=JSON.parse(localStorage.getItem(GOL
 function storeGolfApi(path,payload){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},ttl=path.startsWith('/courses/')?7*864e5:path.includes('/courses')?864e5:15*60e3;cache[path]={payload,expires:Date.now()+ttl};localStorage.setItem(GOLF_CACHE_KEY,JSON.stringify(cache))}catch{}}
 async function requestGolfApi(path){
   let response;
-  try{response=await fetch(`${COURSE_API}${path}`)}catch{throw new Error('The course service could not be reached. Check your connection and try again.')}
+  try{
+    response=await fetch(`${COURSE_API}${path}`);
+    if(response.status===429){
+      const retryAfter=Number(response.headers.get('Retry-After')),delay=Math.min(3000,Math.max(750,(Number.isFinite(retryAfter)?retryAfter:1)*1000));
+      await new Promise(resolve=>setTimeout(resolve,delay));
+      response=await fetch(`${COURSE_API}${path}`);
+    }
+  }catch{throw new Error('The course service could not be reached. Check your connection and try again.')}
   if(response.ok){
     try{const payload=await response.json();return payload.data??payload}catch{throw new Error('The course service returned an invalid response. Please try again.')}
   }
