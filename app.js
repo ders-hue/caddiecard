@@ -18,6 +18,10 @@ const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
 const FRIENDS_KEY='caddiecard-friends-v1';
 const AUTO_ADVANCE_KEY='caddiecard-auto-hole-advance-v1';
+const APP_VERSION='2026.11.06.1';
+const UPDATE_SNOOZE_KEY='caddiecard-update-snooze-v1';
+const UPDATE_CHECK_INTERVAL=5*60*1000;
+const UPDATE_SNOOZE_INTERVAL=15*60*1000;
 const NO_SCORE=99;
 const state={course:null,format:null,handicapMode:'recommended',players:[],hole:0,scores:[],skinsStake:1,nassauMode:'singles'};
 const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},greensomes:{name:'Greensomes',players:4},matchplay:{name:'Matchplay',players:2},strokeplay:{name:'Stroke Play',players:4},fourtwenty:{name:'4-2-0',players:3},skins:{name:'Skins',players:4},nassau:{name:'Nassau',players:2}};
@@ -51,6 +55,19 @@ function playingHandicaps(){
   return courseHandicaps.map(handicap=>Math.round((handicap-lowest)*allowance));
 }
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+
+let lastUpdateCheckAt=0,pendingUpdateVersion='';
+function preRoundScreenActive(){return !state.scores?.length&&['course','tee','format','handicap','players'].some(name=>!$(`#${name}Screen`).classList.contains('hidden'))}
+function updateSnoozed(version){try{const snooze=JSON.parse(localStorage.getItem(UPDATE_SNOOZE_KEY));return snooze?.version===version&&Number(snooze.until)>Date.now()}catch{return false}}
+function showUpdateOffer(version){if(!preRoundScreenActive()||version===APP_VERSION||updateSnoozed(version))return;pendingUpdateVersion=version;const otherDialogs=[...document.querySelectorAll('dialog[open]')].filter(dialog=>dialog.id!=='updateAvailableDialog');if(otherDialogs.length){otherDialogs.forEach(dialog=>dialog.addEventListener('close',()=>setTimeout(()=>showUpdateOffer(version),0),{once:true}));return}const dialog=$('#updateAvailableDialog');if(!dialog.open)dialog.showModal()}
+async function checkForUpdate(force=false){if(!preRoundScreenActive()||document.hidden)return;const now=Date.now();if(!force&&now-lastUpdateCheckAt<UPDATE_CHECK_INTERVAL)return;lastUpdateCheckAt=now;try{const response=await fetch(`version.json?check=${now}`,{cache:'no-store'});if(!response.ok)return;const release=await response.json(),version=String(release.version||'').trim();if(version&&version!==APP_VERSION)showUpdateOffer(version)}catch{}}
+function snoozeUpdate(){if(pendingUpdateVersion)try{localStorage.setItem(UPDATE_SNOOZE_KEY,JSON.stringify({version:pendingUpdateVersion,until:Date.now()+UPDATE_SNOOZE_INTERVAL}))}catch{}$('#updateAvailableDialog').close()}
+$('#snoozeUpdate').addEventListener('click',snoozeUpdate);
+$('#updateAvailableDialog').addEventListener('cancel',event=>{event.preventDefault();snoozeUpdate()});
+$('#applyUpdate').addEventListener('click',()=>{try{localStorage.removeItem(UPDATE_SNOOZE_KEY)}catch{}const url=new URL(location.href);url.searchParams.set('update',pendingUpdateVersion||Date.now());location.replace(url.href)});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkForUpdate()});
+window.addEventListener('focus',()=>checkForUpdate());
+window.addEventListener('load',()=>setTimeout(()=>checkForUpdate(true),3000),{once:true});
 
 let ocrLibraryPromise;
 function loadOcrLibrary(){
