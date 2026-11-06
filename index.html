@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <meta name="apple-mobile-web-app-title" content="CaddieCard">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=62">
+  <link rel="stylesheet" href="styles.css?v=63">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -75,7 +75,7 @@
           <button id="toggleFavourite" class="star-button" type="button" aria-label="Add club to favourites"><svg viewBox="0 0 32 32" aria-hidden="true"><path class="icon-glow" d="m16 3.2 3.8 8 8.7 1.1-6.4 6 1.7 8.6-7.8-4.3-7.8 4.3 1.7-8.6-6.4-6 8.7-1.1z"/><path class="icon-star" d="m16 5.8 3.1 6.6 7.2.9-5.3 5 1.4 7.1-6.4-3.6-6.4 3.6 1.4-7.1-5.3-5 7.2-.9z"/><path class="icon-shine" d="m12.2 12.9 3.8-5 2 4.4"/></svg></button>
         </div>
       </div>
-      <p class="lead tee-lead">Select the markers you are playing today.</p>
+      <div class="tee-data-row"><p class="lead tee-lead">Select the markers you are playing today.</p><button id="refreshCourseData" class="tee-refresh" type="button">Refresh tees</button></div>
       <div id="teeChoices" class="choice-list"></div>
     </section>
 
@@ -139,6 +139,13 @@
     <div class="bottom-actions"><button class="secondary" id="cancelFinish">Cancel</button><button class="danger" id="confirmFinish">Start new round</button></div>
   </dialog>
 
+  <dialog id="homeCourseDialog" class="settings-dialog">
+    <p class="step">HOME COURSE</p>
+    <h2>Save your home course?</h2>
+    <p>Would you like to save <strong id="homeCoursePromptName"></strong> as your home course?</p>
+    <div class="bottom-actions"><button class="secondary" id="declineHomeCourse" type="button">Not now</button><button class="primary" id="confirmHomeCourse" type="button">Save as home</button></div>
+  </dialog>
+
   <dialog id="settingsDialog" class="settings-dialog">
     <div class="settings-dialog-head"><img id="settingsTestLogo" src="caddiecard-icon.png" alt="" draggable="false"><h2>Settings</h2><span id="testModeStatus" class="test-mode-status" aria-live="polite"></span></div>
     <div class="settings-menu"><button class="settings-menu-button" id="openProfileSettings" type="button">Your Name &amp; WHS</button><button class="settings-menu-button danger-menu-button" id="openAbandonScoring" type="button">Abandon Scoring</button></div>
@@ -174,6 +181,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=62"></script>
+<script src="app.js?v=63"></script>
 </body>
 </html>

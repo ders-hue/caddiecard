@@ -168,6 +168,8 @@ const GOLF_CACHE_KEY='caddiecard-golf-api-cache-v1';
 const FAVOURITES_KEY='caddiecard-favourite-clubs-v1';
 const LEGACY_FAVOURITES_KEY='scoring-app-favourite-clubs-v1';
 const HOME_CLUB_KEY='caddiecard-home-club-v1';
+const CLUB_COURSES_KEY='caddiecard-club-courses-v1';
+const HOME_CLUB_PROMPTED_KEY='caddiecard-home-club-prompted-v1';
 let selectedClub=null,searchTimer=null,searchRequest=0,clubSelectionRequest=0;
 
 function favourites(){
@@ -176,6 +178,10 @@ function favourites(){
 function saveFavourites(clubs){localStorage.setItem(FAVOURITES_KEY,JSON.stringify(clubs))}
 function homeClub(){try{return JSON.parse(localStorage.getItem(HOME_CLUB_KEY))}catch{return null}}
 function saveHomeClub(club){if(club)localStorage.setItem(HOME_CLUB_KEY,JSON.stringify(club));else localStorage.removeItem(HOME_CLUB_KEY)}
+function storedClubCourses(id){try{return JSON.parse(localStorage.getItem(CLUB_COURSES_KEY))?.[id]?.courses||null}catch{return null}}
+function saveClubCourses(club,courses){
+  try{const saved=JSON.parse(localStorage.getItem(CLUB_COURSES_KEY))||{};saved[club.id]={club,courses,savedAt:Date.now()};const trimmed=Object.fromEntries(Object.entries(saved).sort((a,b)=>b[1].savedAt-a[1].savedAt).slice(0,12));localStorage.setItem(CLUB_COURSES_KEY,JSON.stringify(trimmed))}catch{}
+}
 function escapeHtml(value=''){return String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}
 const golfApiCache=new Map(),golfApiPending=new Map();
 function storedGolfApi(path){try{const cache=JSON.parse(localStorage.getItem(GOLF_CACHE_KEY))||{},entry=cache[path];if(!entry||entry.expires<Date.now())return null;return entry.payload}catch{return null}}
@@ -199,6 +205,7 @@ function golfApi(path){
   const request=requestGolfApi(path).then(payload=>{golfApiCache.set(path,payload);storeGolfApi(path,payload);return payload}).finally(()=>golfApiPending.delete(path));
   golfApiPending.set(path,request);return request;
 }
+async function refreshGolfApi(path){const payload=await requestGolfApi(path);golfApiCache.set(path,payload);storeGolfApi(path,payload);return payload}
 function clubButton(club){
   const place=[club.city,club.county,club.postcode].filter(Boolean).filter((value,index,array)=>array.indexOf(value)===index).join(' · ');
   return `<button class="club-choice" data-club-id="${escapeHtml(club.id)}"><span><strong>${escapeHtml(club.name)}</strong><small>${escapeHtml(place)}</small></span><svg class="choice-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`;
@@ -233,18 +240,25 @@ function updateHomeButton(){
   button.classList.toggle('active',Boolean(active));button.setAttribute('aria-label',active?'Remove as home club':'Set as home club');
 }
 function normaliseCourses(payload){return Array.isArray(payload)?payload:(payload.courses?payload.courses:[payload])}
-async function selectClub(id,displayedName){
+function maybeOfferHomeClub(){
+  if(homeClub()||localStorage.getItem(HOME_CLUB_PROMPTED_KEY)||!selectedClub)return;
+  localStorage.setItem(HOME_CLUB_PROMPTED_KEY,'1');$('#homeCoursePromptName').textContent=selectedClub.name;$('#homeCourseDialog').showModal();
+}
+async function selectClub(id,displayedName,refresh=false){
   const request=++clubSelectionRequest,known=[...favourites()];
   selectedClub={id,name:displayedName?.trim()||known.find(club=>club.id===id)?.name||'Selected golf club'};
-  $('#selectedClubName').textContent=selectedClub.name;renderTeeLoading();updateFavouriteButton();updateHomeButton();showScreen('tee');window.scrollTo({top:0,behavior:'smooth'});
+  $('#selectedClubName').textContent=selectedClub.name;updateFavouriteButton();updateHomeButton();showScreen('tee');window.scrollTo({top:0,behavior:'smooth'});
+  const savedCourses=!refresh&&storedClubCourses(id);
+  if(savedCourses?.length){renderTeeChoices(savedCourses);maybeOfferHomeClub();return}
+  renderTeeLoading();
   try{
-    const summary=normaliseCourses(await golfApi(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
+    const load=refresh?refreshGolfApi:golfApi,summary=normaliseCourses(await load(`/clubs/${encodeURIComponent(id)}/courses`));if(request!==clubSelectionRequest)return;
     const courses=[];
     for(const course of summary.filter(course=>course?.id)){
-      courses.push(await golfApi(`/courses/${encodeURIComponent(course.id)}`));
+      courses.push(await load(`/courses/${encodeURIComponent(course.id)}`));
       if(request!==clubSelectionRequest)return;
     }
-    if(request===clubSelectionRequest)renderTeeChoices(courses);
+    if(request===clubSelectionRequest){saveClubCourses(selectedClub,courses);renderTeeChoices(courses);maybeOfferHomeClub()}
   }catch(error){if(request===clubSelectionRequest)$('#teeChoices').innerHTML=`<div class="api-error-card"><p class="validation">${escapeHtml(error.message)}</p><button type="button" class="retry-button" data-retry-club>Retry loading course</button></div>`}
 }
 function teeColour(colour){
@@ -273,12 +287,15 @@ renderFavourites();
 $('#clubSearch').addEventListener('input',event=>{clearTimeout(searchTimer);const query=event.target.value.trim();if(query.length<2){$('#clubStatus').textContent='Type at least two characters.';$('#searchSection').classList.add('hidden');renderFavourites();return}$('#favouritesSection').classList.add('hidden');$('#searchSection').classList.remove('hidden');$('#clubResults').innerHTML='<div class="searching-row"><span></span>Searching clubs…</div>';searchTimer=setTimeout(()=>searchClubs(query),650)});
 $('#clubSearch').addEventListener('search',event=>{if(!event.target.value){$('#searchSection').classList.add('hidden');$('#clubStatus').textContent='Type at least two characters.';renderFavourites()}});
 document.querySelector('.club-picker').addEventListener('click',event=>{if(event.target.closest('[data-retry-search]')){const query=$('#clubSearch').value.trim();if(query.length>=2)searchClubs(query);return}const club=event.target.closest('[data-club-id]');if(club)selectClub(club.dataset.clubId,club.querySelector('strong')?.textContent)});
-$('#teeChoices').addEventListener('click',event=>{if(event.target.closest('[data-retry-club]')){if(selectedClub)selectClub(selectedClub.id,selectedClub.name);return}const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+$('#teeChoices').addEventListener('click',event=>{if(event.target.closest('[data-retry-club]')){if(selectedClub)selectClub(selectedClub.id,selectedClub.name,true);return}const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
+$('#refreshCourseData').addEventListener('click',()=>{if(selectedClub)selectClub(selectedClub.id,selectedClub.name,true)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
 $('#backToTees').addEventListener('click',()=>showScreen('tee'));
 document.querySelector('.format-list').addEventListener('click',event=>{const button=event.target.closest('[data-format]');if(!button)return;state.format=button.dataset.format;state.handicapMode='recommended';ensurePlayerSlots();renderHandicapChoices();showScreen('handicap');save()});
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
+$('#declineHomeCourse').addEventListener('click',()=>$('#homeCourseDialog').close());
+$('#confirmHomeCourse').addEventListener('click',()=>{if(selectedClub){const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club);renderFavourites();updateFavouriteButton();updateHomeButton()}$('#homeCourseDialog').close()});
 
 function settingsProfile(){try{const settings=JSON.parse(localStorage.getItem(SETTINGS_KEY))||{},whs=settings.whs===''||settings.whs==null?null:Number(settings.whs);return {playerName:settings.playerName?.trim()||settings.name?.trim()||'Your Name',whs:Number.isFinite(whs)&&whs>=0&&whs<=36?whs:null}}catch{return {playerName:'Your Name',whs:null}}}
 function settingsPlayerName(){return settingsProfile().playerName}
