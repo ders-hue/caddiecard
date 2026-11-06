@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <meta name="apple-mobile-web-app-title" content="CaddieCard">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=74">
+  <link rel="stylesheet" href="styles.css?v=75">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -177,7 +177,7 @@
     <div id="friendsList" class="friends-list"></div><p id="friendsEmpty" class="friends-empty">No friends added yet. Tap + to add one.</p>
   </dialog>
   <dialog id="friendEditorDialog" class="settings-dialog friend-editor-dialog">
-    <h2 id="friendEditorTitle">Add friend</h2><div class="friend-fields"><label>Name<input id="friendName" maxlength="40" autocomplete="off"></label><label>WHS Handicap<input id="friendWhs" type="number" inputmode="decimal" min="0" max="36" step="0.1"></label></div><p class="validation" id="friendEditorError"></p>
+    <h2 id="friendEditorTitle">Add friend</h2><div class="friend-fields"><label>Name<input id="friendName" maxlength="40" autocomplete="off"></label><label class="friend-whs-field">WHS<input id="friendWhs" type="number" inputmode="decimal" min="0" max="36" step="0.1"></label></div><p class="validation" id="friendEditorError"></p>
     <div class="bottom-actions"><button class="secondary" id="cancelFriendEditor" type="button">Cancel</button><button class="primary" id="saveFriend" type="button">Save</button></div>
   </dialog>
   <dialog id="friendPickerDialog" class="settings-dialog friend-picker-dialog">
@@ -220,6 +220,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=75"></script>
+<script src="app.js?v=76"></script>
 </body>
 </html>
