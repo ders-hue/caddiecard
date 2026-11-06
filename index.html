@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <meta name="apple-mobile-web-app-title" content="CaddieCard">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=57">
+  <link rel="stylesheet" href="styles.css?v=58">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -92,18 +92,22 @@
       </div>
     </section>
 
+    <section class="screen hidden" id="handicapScreen">
+      <button id="backToFormat" class="change-club" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg><span>Back</span></button>
+      <p class="step">STEP 4 OF 6</p>
+      <h1>Choose Handicap Method</h1>
+      <p class="lead" id="handicapIntro"></p>
+      <div class="handicap-choice-list" id="handicapChoices"></div>
+    </section>
+
     <section class="screen hidden" id="playersScreen">
-      <p class="step">STEP 4 OF 5</p>
+      <p class="step">STEP 5 OF 6</p>
       <h1>Add players</h1>
       <p class="lead" id="selectedCourse"></p>
-      <section class="handicap-rule hidden" id="handicapRule">
+      <section class="handicap-rule" id="handicapRule">
         <div><small>HANDICAP RULE</small><strong id="handicapRuleName"></strong></div>
         <button type="button" id="changeHandicapRule">Change</button>
       </section>
-      <div class="handicap-options hidden" id="handicapOptions">
-        <button type="button" data-handicap-mode="recommended"></button>
-        <button type="button" data-handicap-mode="full">Full handicap · 100% · no differential</button>
-      </div>
       <div id="playerRows" class="player-rows"></div>
       <datalist id="rememberedNames"></datalist>
       <p class="validation" id="playerError"></p>
@@ -170,6 +174,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=57"></script>
+<script src="app.js?v=58"></script>
 </body>
 </html>

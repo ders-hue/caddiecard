@@ -20,6 +20,7 @@ const state={course:null,format:null,handicapMode:'recommended',players:[],hole:
 const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},greensomes:{name:'Greensomes',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
 
 function capitalisePlayerName(value){return value.trim().replace(/\s+/g,' ').replace(/(^|[\s'-])([a-z])/g,(_,separator,letter)=>separator+letter.toUpperCase())}
+function capitalisePlayerNameEntry(value){return value.replace(/(^|[\s'-])([a-z])/g,(_,separator,letter)=>separator+letter.toUpperCase())}
 $('#splashPlayerName').addEventListener('blur',event=>{event.target.value=capitalisePlayerName(event.target.value)});
 $('#splashProfile').addEventListener('submit',event=>{event.preventDefault();const name=capitalisePlayerName($('#splashPlayerName').value),rawWhs=$('#splashPlayerWhs').value,whs=rawWhs===''?null:Number(rawWhs),error=$('#splashProfileError');$('#splashPlayerName').value=name;if(!name||name==='Your Name'){error.textContent='Enter the name you want on your scorecard.';$('#splashPlayerName').focus();return}if(whs==null||!Number.isFinite(whs)||whs<0||whs>36){error.textContent='Enter a WHS between 0 and 36.';$('#splashPlayerWhs').focus();return}localStorage.setItem(SETTINGS_KEY,JSON.stringify({playerName:name,whs}));if(!state.scores.length){ensurePlayerSlots();state.players[0].name=name;state.players[0].index=String(whs);const calculated=state.course?courseHandicap(whs):null;state.players[0].courseHandicap=calculated!=null&&calculated>=0&&calculated<=36?calculated:null;save();if(state.course&&!$('#playersScreen').classList.contains('hidden'))renderPlayers()}dismissSplash()});
 
@@ -27,7 +28,7 @@ function renderCourseRows(pars=Array(18).fill(4),indexes=Array.from({length:18},
   $('#courseTable tbody').innerHTML=Array.from({length:18},(_,i)=>`<tr><td>${i+1}</td><td><input type="number" inputmode="numeric" min="3" max="6" value="${pars[i]??''}" data-par="${i}" aria-label="Par for hole ${i+1}"></td><td><input type="number" inputmode="numeric" min="1" max="18" value="${indexes[i]??''}" data-si="${i}" aria-label="Stroke index for hole ${i+1}"></td></tr>`).join('');
 }
 
-function showScreen(name){['course','tee','format','players','score','summary'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name));window.scrollTo({top:0,behavior:'auto'})}
+function showScreen(name){['course','tee','format','handicap','players','score','summary'].forEach(id=>$(`#${id}Screen`).classList.toggle('hidden',id!==name));window.scrollTo({top:0,behavior:'auto'})}
 function coursePar(){return state.course.pars.reduce((a,b)=>a+b,0)}
 function courseHandicap(index){return Math.round(index*(state.course.slope/113)+(state.course.rating-coursePar()))}
 function strokesOnHole(handicap,strokeIndex){if(handicap>=0)return Math.floor(handicap/18)+(strokeIndex<=handicap%18?1:0);const plus=Math.abs(handicap);return -(Math.floor(plus/18)+(strokeIndex<=plus%18?1:0))}
@@ -35,6 +36,10 @@ function pointsFor(gross,player,hole,handicap=player.courseHandicap){if(gross==n
 function playerCount(){return FORMAT_CONFIG[state.format]?.players||4}
 function playingHandicaps(){
   const courseHandicaps=state.players.map(player=>Number(player.courseHandicap)||0);
+  if(state.format==='greensomes'){
+    const teamHandicap=(first,second)=>state.handicapMode==='equal'?Math.round((first+second)*.5):Math.round(Math.min(first,second)*.6+Math.max(first,second)*.4),teamA=teamHandicap(courseHandicaps[0],courseHandicaps[1]),teamB=teamHandicap(courseHandicaps[2],courseHandicaps[3]),lowest=Math.min(teamA,teamB);
+    return [teamA-lowest,teamA-lowest,teamB-lowest,teamB-lowest];
+  }
   if(state.format==='stableford'||state.format==='fourtwenty'||state.handicapMode==='full')return courseHandicaps;
   const lowest=Math.min(...courseHandicaps),allowance=state.format==='fourball'?0.9:1;
   return courseHandicaps.map(handicap=>Math.round((handicap-lowest)*allowance));
@@ -269,7 +274,7 @@ document.querySelector('.club-picker').addEventListener('click',event=>{if(event
 $('#teeChoices').addEventListener('click',event=>{if(event.target.closest('[data-retry-club]')){if(selectedClub)selectClub(selectedClub.id,selectedClub.name);return}const tee=event.target.closest('[data-tee-id]');if(tee)selectTee(tee.dataset.courseId,tee.dataset.teeId)});
 $('#changeClub').addEventListener('click',showClubDiscovery);
 $('#backToTees').addEventListener('click',()=>showScreen('tee'));
-document.querySelector('.format-list').addEventListener('click',event=>{const button=event.target.closest('[data-format]');if(!button)return;state.format=button.dataset.format;state.handicapMode='recommended';ensurePlayerSlots();renderPlayers();showScreen('players');save()});
+document.querySelector('.format-list').addEventListener('click',event=>{const button=event.target.closest('[data-format]');if(!button)return;state.format=button.dataset.format;state.handicapMode='recommended';ensurePlayerSlots();renderHandicapChoices();showScreen('handicap');save()});
 $('#toggleFavourite').addEventListener('click',()=>{if(!selectedClub)return;const clubs=favourites(),index=clubs.findIndex(club=>club.id===selectedClub.id);if(index>=0){clubs.splice(index,1);if(homeClub()?.id===selectedClub.id)saveHomeClub(null)}else clubs.unshift({id:selectedClub.id,name:selectedClub.name});saveFavourites(clubs);renderFavourites();updateFavouriteButton();updateHomeButton()});
 $('#toggleHome').addEventListener('click',()=>{if(!selectedClub)return;const current=homeClub();if(current?.id===selectedClub.id)saveHomeClub(null);else{const club={id:selectedClub.id,name:selectedClub.name},clubs=favourites();if(!clubs.some(item=>item.id===club.id)){clubs.unshift(club);saveFavourites(clubs)}saveHomeClub(club)}renderFavourites();updateFavouriteButton();updateHomeButton()});
 
@@ -288,28 +293,38 @@ function applyRememberedPlayer(slot){
   player.index=String(remembered.whs);player.courseHandicap=courseHandicap(Number(remembered.whs));const row=document.querySelector(`[data-player-row="${slot}"]`);if(row){row.querySelector('[data-player-index]').value=player.index;row.querySelector('[data-player-course]').value=player.courseHandicap}
 }
 function queueRememberedPlayerSave(slot){clearTimeout(playerSaveTimers.get(slot));playerSaveTimers.set(slot,setTimeout(()=>{const player=state.players[slot],name=player.name.trim(),whs=player.index===''?null:Number(player.index);if(!name||whs==null||!Number.isFinite(whs)||whs<0||whs>36){playerSaveTimers.delete(slot);return}const players=storedPlayers(),match=players.findIndex(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()),saved={name,whs,updatedAt:Date.now()};if(match>=0)players.splice(match,1);players.unshift(saved);localStorage.setItem(PLAYER_MEMORY_KEY,JSON.stringify(players.slice(0,100)));playerSaveTimers.delete(slot)},500))}
+const HANDICAP_OPTIONS={
+  stableford:[{mode:'recommended',title:'Standard · 100% Course Handicap',description:'Each player receives their full Course Handicap, with strokes applied by stroke index.'}],
+  fourball:[{mode:'recommended',title:'Recommended · 90% from lowest',description:'The lowest player plays from zero. Every other player receives 90% of the Course Handicap difference.'},{mode:'full',title:'Full handicap · 100% · no differential',description:'Each player uses their full Course Handicap without reducing against the lowest player.'}],
+  greensomes:[{mode:'recommended',title:'Greensomes · 60/40',description:'Each team receives 60% of the lower plus 40% of the higher Course Handicap. In match play, use the difference between team handicaps.'},{mode:'equal',title:'Combined · 50/50',description:'Each team receives 50% of the partners’ combined Course Handicaps, following the common foursomes allowance.'}],
+  matchplay:[{mode:'recommended',title:'Recommended · 100% from lowest',description:'The lowest player plays from zero. The other player receives the full Course Handicap difference.'},{mode:'full',title:'Full handicap · 100% · no differential',description:'Both players use their full Course Handicap without reducing against the lowest player.'}],
+  fourtwenty:[{mode:'recommended',title:'Standard · 100% Course Handicap',description:'Each player receives their full Course Handicap before the 4-2-0 points are awarded.'}]
+};
+function formatHandicapOptions(){return HANDICAP_OPTIONS[state.format]||HANDICAP_OPTIONS.stableford}
 function handicapRuleText(){
-  if(state.format==='fourball')return state.handicapMode==='full'?'Full handicap · 100% · no differential':'Recommended · 90% from lowest';
-  if(state.format==='matchplay')return state.handicapMode==='full'?'Full handicap · 100% · no differential':'Recommended · 100% from lowest';
-  return '';
+  return formatHandicapOptions().find(option=>option.mode===state.handicapMode)?.title||formatHandicapOptions()[0].title;
+}
+function renderHandicapChoices(){
+  $('#handicapIntro').textContent=`Select how handicaps should be applied for ${FORMAT_CONFIG[state.format].name}.`;
+  $('#handicapChoices').innerHTML=formatHandicapOptions().map(option=>`<button type="button" class="handicap-choice ${option.mode===state.handicapMode?'active':''}" data-handicap-mode="${option.mode}"><strong>${escapeHtml(option.title)}</strong><span>${escapeHtml(option.description)}</span></button>`).join('');
 }
 function renderPlayers(){
   ensurePlayerSlots();$('#selectedCourse').textContent=`${state.course.name} · ${state.course.tee} tees · Par ${coursePar()} · Slope ${state.course.slope}`;
-  const needsChoice=state.format==='fourball'||state.format==='matchplay',rule=$('#handicapRule');rule.classList.toggle('hidden',!needsChoice);$('#handicapOptions').classList.add('hidden');
-  if(needsChoice){$('#handicapRuleName').textContent=handicapRuleText();const recommended=state.format==='fourball'?'Recommended · 90% from lowest':'Recommended · 100% from lowest';document.querySelector('[data-handicap-mode="recommended"]').textContent=recommended;document.querySelectorAll('[data-handicap-mode]').forEach(button=>button.classList.toggle('active',button.dataset.handicapMode===state.handicapMode))}
-  $('#playerRows').innerHTML=state.players.slice(0,playerCount()).map((player,i)=>{const teamHeading=state.format==='fourball'&&(i===0||i===2)?`<h2 class="team-heading"><span>Team ${i===0?'A':'B'}</span><small>${i===0?'Players 1 & 2':'Players 3 & 4'}</small></h2>`:'';return `${teamHeading}<article class="player-row" data-player-row="${i}"><label class="player-name">Name<input value="${escapeHtml(player.name)}" data-player-name="${i}" maxlength="40" autocomplete="off" list="rememberedNames" placeholder="Player ${i+1}"></label><label class="player-whs">WHS<input type="number" inputmode="decimal" min="0" max="36" step="0.1" value="${escapeHtml(player.index)}" data-player-index="${i}"></label><label class="player-course">Course<input type="text" inputmode="numeric" pattern="[0-9]*" value="${player.courseHandicap??''}" data-player-course="${i}" aria-label="Course Handicap for player ${i+1}"></label><button class="remove-player" data-clear-player="${i}" aria-label="Clear player ${i+1}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="remove-cross-shadow" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross-highlight" d="M7.8 7.3l3.7 3.7M16.2 7.3L12.5 11"/></svg></button></article>`}).join('');loadRememberedNames();
+  $('#handicapRuleName').textContent=handicapRuleText();
+  $('#playerRows').innerHTML=state.players.slice(0,playerCount()).map((player,i)=>{const teamFormat=state.format==='fourball'||state.format==='greensomes',teamHeading=teamFormat&&(i===0||i===2)?`<h2 class="team-heading"><span>Team ${i===0?'A':'B'}</span><small>${i===0?'Players 1 & 2':'Players 3 & 4'}</small></h2>`:'';return `${teamHeading}<article class="player-row" data-player-row="${i}"><label class="player-name">Name<input value="${escapeHtml(player.name)}" data-player-name="${i}" maxlength="40" autocomplete="off" list="rememberedNames" placeholder="Player ${i+1}"></label><label class="player-whs">WHS<input type="number" inputmode="decimal" min="0" max="36" step="0.1" value="${escapeHtml(player.index)}" data-player-index="${i}"></label><label class="player-course">Course<input type="text" inputmode="numeric" pattern="[0-9]*" value="${player.courseHandicap??''}" data-player-course="${i}" aria-label="Course Handicap for player ${i+1}"></label><button class="remove-player" data-clear-player="${i}" aria-label="Clear player ${i+1}"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="remove-cross-shadow" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross" d="M7.5 7.5l9 9M16.5 7.5l-9 9"/><path class="remove-cross-highlight" d="M7.8 7.3l3.7 3.7M16.2 7.3L12.5 11"/></svg></button></article>`}).join('');loadRememberedNames();
 }
 $('#playerRows').addEventListener('input',event=>{
   const i=Number(event.target.dataset.playerName??event.target.dataset.playerIndex??event.target.dataset.playerCourse);if(!Number.isInteger(i))return;const player=state.players[i];
-  if(event.target.matches('[data-player-name]')){player.name=event.target.value;clearTimeout(nameLookupTimer);nameLookupTimer=setTimeout(async()=>{await loadRememberedNames(player.name.trim());applyRememberedPlayer(i)},180)}
+  if(event.target.matches('[data-player-name]')){const start=event.target.selectionStart,name=capitalisePlayerNameEntry(event.target.value);event.target.value=name;event.target.setSelectionRange(start,start);player.name=name;clearTimeout(nameLookupTimer);nameLookupTimer=setTimeout(async()=>{await loadRememberedNames(player.name.trim());applyRememberedPlayer(i)},180)}
   else if(event.target.matches('[data-player-index]')){const value=Number(event.target.value);if(event.target.value!==''&&(!Number.isFinite(value)||value<0||value>36)){event.target.value='';player.index='';player.courseHandicap=null}else{player.index=event.target.value;player.courseHandicap=event.target.value===''?null:courseHandicap(value);if(player.courseHandicap<0||player.courseHandicap>36)player.courseHandicap=null}document.querySelector(`[data-player-course="${i}"]`).value=player.courseHandicap??'';queueRememberedPlayerSave(i)}
   else{const value=Number(event.target.value);if(event.target.value!==''&&(!Number.isInteger(value)||value<0||value>36)){event.target.value='';player.courseHandicap=null}else player.courseHandicap=event.target.value===''?null:value}$('#playerError').textContent='';save();
 });
 $('#playerRows').addEventListener('change',event=>{const i=Number(event.target.dataset.playerName??event.target.dataset.playerIndex);if(Number.isInteger(i))queueRememberedPlayerSave(i)});
 $('#playerRows').addEventListener('click',event=>{if(event.target.matches('[data-player-course]')){event.target.select();return}const button=event.target.closest('[data-clear-player]');if(!button)return;const i=Number(button.dataset.clearPlayer);state.players[i]=emptyPlayer(i===0?settingsPlayerName():'');renderPlayers();save()});
-$('#changeHandicapRule').addEventListener('click',()=>$('#handicapOptions').classList.toggle('hidden'));
-$('#handicapOptions').addEventListener('click',event=>{const button=event.target.closest('[data-handicap-mode]');if(!button)return;state.handicapMode=button.dataset.handicapMode;renderPlayers();save()});
-$('#backToCourse').addEventListener('click',()=>showScreen('format'));
+$('#backToFormat').addEventListener('click',()=>showScreen('format'));
+$('#handicapChoices').addEventListener('click',event=>{const button=event.target.closest('[data-handicap-mode]');if(!button)return;state.handicapMode=button.dataset.handicapMode;renderPlayers();showScreen('players');save()});
+$('#changeHandicapRule').addEventListener('click',()=>{renderHandicapChoices();showScreen('handicap')});
+$('#backToCourse').addEventListener('click',()=>{renderHandicapChoices();showScreen('handicap')});
 $('#startRound').addEventListener('click',()=>{const error=$('#playerError'),available=state.players.slice(0,playerCount()),players=available.filter(player=>player.name.trim()),exact=state.format!=='stableford';if(!players.length){error.textContent='Enter at least one player.';return}if(exact&&players.length!==playerCount()){error.textContent=`${FORMAT_CONFIG[state.format].name} needs ${playerCount()} players.`;return}if(players.some(player=>player.courseHandicap==null||player.courseHandicap===''||!Number.isInteger(Number(player.courseHandicap))||Number(player.courseHandicap)<0||Number(player.courseHandicap)>36)){error.textContent='Each named player needs a Course Handicap from 0 to 36.';return}document.activeElement?.blur();state.players=players.map(player=>({...player,name:player.name.trim(),courseHandicap:Number(player.courseHandicap)}));state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';state.players.forEach((_,i)=>queueRememberedPlayerSave(i));renderScore();showScreen('score');setTimeout(()=>window.scrollTo({top:0,left:0,behavior:'auto'}),50);save()});
 
 let selectedPlayer=0,swipeStartX=0,swipeStartY=0,suppressPlayerClickUntil=0,testMode=false,testModeTimer=null;
