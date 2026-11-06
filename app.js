@@ -2,6 +2,8 @@ const $=selector=>document.querySelector(selector);
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 $('#refreshApp').addEventListener('click',()=>window.location.reload());
 $('#refreshApp').addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.reload()}});
+$('#refreshApp').addEventListener('contextmenu',event=>event.preventDefault());
+$('#refreshApp').addEventListener('dragstart',event=>event.preventDefault());
 function dismissSplash(){const splash=$('#appSplash');if(!splash||splash.classList.contains('splash-exit'))return;splash.classList.add('splash-exit');setTimeout(()=>splash.remove(),380)}
 function splashProfile(){try{const profile=JSON.parse(localStorage.getItem('caddiecard-settings-v1'))||{},name=profile.playerName?.trim()||profile.name?.trim()||'',whs=profile.whs===''||profile.whs==null?null:Number(profile.whs);return {name,whs:Number.isFinite(whs)?whs:null}}catch{return {name:'',whs:null}}}
 function showSplashProfile(){const splash=$('#appSplash'),profile=splashProfile();if(!splash)return;splash.classList.add('needs-profile');$('#splashStatus').classList.add('hidden');$('#splashProfile').classList.remove('hidden');$('#splashPlayerName').value=profile.name==='Your Name'?'':profile.name;$('#splashPlayerWhs').value=profile.whs??'';setTimeout(()=>{const field=!$('#splashPlayerName').value?$('#splashPlayerName'):$('#splashPlayerWhs');field.focus();field.select()},80)}
