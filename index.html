@@ -88,7 +88,10 @@
         <button class="format-choice" type="button" data-format="fourball"><strong>4BBB</strong><span>(4 players)</span></button>
         <button class="format-choice" type="button" data-format="greensomes"><strong>Greensomes</strong><span>(4 players)</span></button>
         <button class="format-choice" type="button" data-format="matchplay"><strong>Matchplay</strong><span>(2 players)</span></button>
+        <button class="format-choice" type="button" data-format="strokeplay"><strong>Stroke Play</strong><span>(1–4 players)</span></button>
         <button class="format-choice" type="button" data-format="fourtwenty"><strong>4-2-0</strong><span>(3 players)</span></button>
+        <button class="format-choice" type="button" data-format="skins"><strong>Skins</strong><span>(2–4 players)</span></button>
+        <button class="format-choice" type="button" data-format="nassau"><strong>Nassau</strong><span>(Singles or teams)</span></button>
       </div>
     </section>
 
@@ -138,6 +141,23 @@
     <h2>Start a new round?</h2>
     <p>Your completed scorecard will be cleared from this phone. Save or share the PDF first if you want to keep it.</p>
     <div class="bottom-actions"><button class="secondary" id="cancelFinish">Cancel</button><button class="danger" id="confirmFinish">Start new round</button></div>
+  </dialog>
+
+  <dialog id="skinsSetupDialog" class="settings-dialog format-setup-dialog">
+    <p class="step">SKINS SETUP</p>
+    <h2>Value per hole</h2>
+    <p>Enter the amount each opponent pays for one skin. Tied holes carry their value forward.</p>
+    <label class="money-field"><span>£</span><input id="skinsStake" type="number" inputmode="decimal" min="0.01" max="1000" step="0.01" value="1.00"></label>
+    <p class="validation" id="skinsSetupError"></p>
+    <div class="bottom-actions"><button class="secondary" id="cancelSkinsSetup" type="button">Cancel</button><button class="primary" id="confirmSkinsSetup" type="button">Continue</button></div>
+  </dialog>
+
+  <dialog id="nassauSetupDialog" class="settings-dialog format-setup-dialog">
+    <p class="step">NASSAU SETUP</p>
+    <h2>Singles or teams?</h2>
+    <p>Each round contains three matches: front nine, back nine and the full 18.</p>
+    <div class="setup-choice-list"><button type="button" data-nassau-mode="singles"><strong>Singles</strong><span>2 players</span></button><button type="button" data-nassau-mode="teams"><strong>Teams</strong><span>2 vs 2 · best ball</span></button></div>
+    <button class="secondary settings-close" id="cancelNassauSetup" type="button">Cancel</button>
   </dialog>
 
   <dialog id="homeCourseDialog" class="settings-dialog">
