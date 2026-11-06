@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <meta name="apple-mobile-web-app-title" content="CaddieCard">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=64">
+  <link rel="stylesheet" href="styles.css?v=65">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -117,6 +117,7 @@
     <section class="screen hidden" id="scoreScreen">
       <div class="hole-heading"><div><p class="step" id="holeCounter"></p><h1 id="holeTitle"></h1><p class="lead" id="holeDetails"></p></div><div class="hole-heading-side"><button class="hole-closed-toggle" id="toggleHoleClosed" type="button" aria-pressed="false">Hole closed</button></div></div>
       <div class="progress"><span id="scoreProgress"></span></div>
+      <div class="auto-progress-slot" aria-hidden="true"><div class="auto-progress-track" id="autoProgressTrack"><span></span></div></div>
       <div id="scorePlayers" class="score-players"></div>
       <p class="validation score-error" id="scoreError"></p>
       <div class="hole-dots" id="holeDots"></div>
@@ -148,7 +149,7 @@
 
   <dialog id="settingsDialog" class="settings-dialog">
     <div class="settings-dialog-head"><img id="settingsTestLogo" src="caddiecard-icon.png" alt="" draggable="false"><h2>Settings</h2><span id="testModeStatus" class="test-mode-status" aria-live="polite"></span></div>
-    <div class="settings-menu"><button class="settings-menu-button" id="openProfileSettings" type="button">Your Name &amp; WHS</button><button class="settings-menu-button danger-menu-button" id="openAbandonScoring" type="button">Abandon Scoring</button></div>
+    <div class="settings-menu"><button class="settings-menu-button" id="openProfileSettings" type="button">Your Name &amp; WHS</button><label class="auto-advance-setting"><span><strong>Auto hole advance</strong><small>Move to the next hole three seconds after every player has a score.</small></span><input id="autoAdvanceSetting" type="checkbox" role="switch"></label><button class="settings-menu-button danger-menu-button" id="openAbandonScoring" type="button">Abandon Scoring</button></div>
     <button class="secondary settings-close" id="closeSettings" type="button">Close</button>
   </dialog>
 
@@ -181,6 +182,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=64"></script>
+<script src="app.js?v=65"></script>
 </body>
 </html>

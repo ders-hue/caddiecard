@@ -15,6 +15,7 @@ const STORAGE_KEY='caddiecard-one-off-v1';
 const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
 const PLAYER_MEMORY_KEY='caddiecard-player-memory-v1';
+const AUTO_ADVANCE_KEY='caddiecard-auto-hole-advance-v1';
 const NO_SCORE=99;
 const state={course:null,format:null,handicapMode:'recommended',players:[],hole:0,scores:[]};
 const FORMAT_CONFIG={stableford:{name:'Stableford',players:4},fourball:{name:'4BBB',players:4},greensomes:{name:'Greensomes',players:4},matchplay:{name:'Matchplay',players:2},fourtwenty:{name:'4-2-0',players:3}};
@@ -347,10 +348,15 @@ $('#backToCourse').addEventListener('click',()=>{renderHandicapChoices();showScr
 $('#startRound').addEventListener('click',()=>{const error=$('#playerError'),available=state.players.slice(0,playerCount()),players=available.filter(player=>player.name.trim()),exact=state.format!=='stableford';if(!players.length){error.textContent='Enter at least one player.';return}if(exact&&players.length!==playerCount()){error.textContent=`${FORMAT_CONFIG[state.format].name} needs ${playerCount()} players.`;return}if(players.some(player=>player.courseHandicap==null||player.courseHandicap===''||!Number.isInteger(Number(player.courseHandicap))||Number(player.courseHandicap)<0||Number(player.courseHandicap)>36)){error.textContent='Each named player needs a Course Handicap from 0 to 36.';return}document.activeElement?.blur();state.players=players.map(player=>({...player,name:player.name.trim(),courseHandicap:Number(player.courseHandicap)}));state.scores=state.players.map(()=>Array(18).fill(null));state.hole=0;error.textContent='';state.players.forEach((_,i)=>queueRememberedPlayerSave(i));renderScore();showScreen('score');setTimeout(()=>window.scrollTo({top:0,left:0,behavior:'auto'}),50);save()});
 
 let selectedPlayer=0,swipeStartX=0,swipeStartY=0,suppressPlayerClickUntil=0,testMode=false,testModeTimer=null;
+let autoAdvance=(()=>{try{return localStorage.getItem(AUTO_ADVANCE_KEY)==='true'}catch{return false}})(),autoAdvanceTimer=null,autoAdvanceCountdownHole=null;
 function holeComplete(hole=state.hole){return state.scores.every(scores=>scores[hole]!=null)}
 function holeClosed(hole=state.hole){return Boolean(state.scores.length)&&state.scores.every(scores=>scores[hole]===NO_SCORE)}
 function completedHoleCount(){return Array.from({length:18},(_,hole)=>holeComplete(hole)).filter(Boolean).length}
 function firstIncompleteHole(){const hole=Array.from({length:18},(_,i)=>i).find(i=>!holeComplete(i));return hole??17}
+function cancelAutoAdvanceCountdown(){if(!autoAdvanceTimer)return;clearTimeout(autoAdvanceTimer);autoAdvanceTimer=null;autoAdvanceCountdownHole=null;$('#autoProgressTrack').classList.remove('counting')}
+function renderAutoAdvanceBar(){const track=$('#autoProgressTrack');track.classList.toggle('enabled',autoAdvance);if(!autoAdvanceTimer)track.classList.remove('counting')}
+function autoAdvanceCompletedHole(wasComplete){if(!autoAdvance||wasComplete||!holeComplete()||state.hole===17)return false;const countdownHole=state.hole,track=$('#autoProgressTrack');cancelAutoAdvanceCountdown();autoAdvanceCountdownHole=countdownHole;track.classList.remove('counting');void track.offsetWidth;track.classList.add('counting');autoAdvanceTimer=setTimeout(()=>{autoAdvanceTimer=null;autoAdvanceCountdownHole=null;track.classList.remove('counting');if(state.hole===countdownHole&&holeComplete())moveHole(1)},3000);return true}
+document.addEventListener('pointerdown',cancelAutoAdvanceCountdown,true);document.addEventListener('wheel',cancelAutoAdvanceCountdown,{capture:true,passive:true});document.addEventListener('keydown',cancelAutoAdvanceCountdown,true);
 function netFor(playerIndex,hole,handicaps=playingHandicaps()){
   const gross=state.scores[playerIndex]?.[hole];if(gross==null)return null;if(gross===NO_SCORE)return Infinity;
   return gross-strokesOnHole(handicaps[playerIndex],state.course.indexes[hole]);
@@ -402,6 +408,7 @@ async function createScorecardPdf(){
 async function shareScorecardPdf(){const button=$('#sharePdf'),error=$('#summaryError');button.disabled=true;button.textContent='Preparing PDF…';error.textContent='';try{const blob=await createScorecardPdf(),safeName=state.course.name.replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,''),file=new File([blob],`CaddieCard-${safeName}.pdf`,{type:'application/pdf'});if(navigator.share&&navigator.canShare?.({files:[file]}))await navigator.share({title:'CaddieCard scorecard',text:`${FORMAT_CONFIG[state.format].name} at ${state.course.name}`,files:[file]});else{const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=file.name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}}catch(err){if(err.name!=='AbortError')error.textContent='The PDF could not be prepared. Please try again.'}finally{button.disabled=false;button.textContent='Share PDF'}}
 function renderScore(){
   const h=state.hole,complete=completedHoleCount(),handicaps=playingHandicaps();$('#holeCounter').textContent=`${FORMAT_CONFIG[state.format].name.toUpperCase()} · HOLE ${h+1} OF 18`;$('#holeTitle').textContent=`Hole ${h+1}`;$('#holeDetails').textContent=`Par ${state.course.pars[h]} · Stroke index ${state.course.indexes[h]}`;$('#scoreProgress').style.width=`${complete/18*100}%`;
+  renderAutoAdvanceBar();
   const closed=holeClosed(h),closedButton=$('#toggleHoleClosed');closedButton.classList.toggle('active',closed);closedButton.setAttribute('aria-pressed',String(closed));
   $('#scorePlayers').innerHTML=state.players.map((player,i)=>{const gross=state.scores[i][h],playingHandicap=handicaps[i],strokes=strokesOnHole(playingHandicap,state.course.indexes[h]),strokeText=strokes>0?`${strokes} stroke${strokes===1?'':'s'}`:strokes<0?`gives ${Math.abs(strokes)}`:'no stroke';let value,label,detail;
     if(state.format==='stableford'){value=pointsFor(gross,player,h,playingHandicap);const total=state.scores[i].reduce((sum,score,hole)=>sum+(pointsFor(score,player,hole,playingHandicap)||0),0);label='Points';detail=`CH ${player.courseHandicap} · ${strokeText} · Total ${total} pts`}
@@ -414,7 +421,7 @@ const scoreEntryDialog=$('#scoreEntryDialog');
 function updateRecordedScore(){const score=state.scores[selectedPlayer]?.[state.hole];document.querySelectorAll('#scoreKeypad button').forEach(key=>{const recorded=score===NO_SCORE?key.hasAttribute('data-no-score'):key.dataset.score===String(score);key.classList.toggle('recorded',recorded);key.setAttribute('aria-pressed',String(recorded))})}
 function openScoreEntry(){const player=state.players[selectedPlayer];$('#keypadPlayer').textContent=player.name;$('#scoreEntryHole').textContent=`HOLE ${state.hole+1} · PAR ${state.course.pars[state.hole]}`;updateRecordedScore();scoreEntryDialog.showModal()}
 function closeScoreEntry(){if(scoreEntryDialog.open)scoreEntryDialog.close()}
-function setGrossScore(gross){state.scores[selectedPlayer][state.hole]=gross;save();closeScoreEntry();const missing=state.scores.findIndex(scores=>scores[state.hole]==null);if(missing>=0)selectedPlayer=missing;renderScore();$('#scoreError').textContent=''}
+function setGrossScore(gross){const wasComplete=holeComplete();state.scores[selectedPlayer][state.hole]=gross;save();closeScoreEntry();const missing=state.scores.findIndex(scores=>scores[state.hole]==null);if(missing>=0)selectedPlayer=missing;renderScore();$('#scoreError').textContent='';autoAdvanceCompletedHole(wasComplete)}
 $('#scorePlayers').addEventListener('click',event=>{if(Date.now()<suppressPlayerClickUntil)return;const player=event.target.closest('[data-player]');if(!player)return;selectedPlayer=Number(player.dataset.player);renderScore();openScoreEntry()});
 $('#scoreKeypad').addEventListener('click',event=>{const key=event.target.closest('button');if(!key)return;if(key.dataset.score)setGrossScore(Number(key.dataset.score));else if(key.hasAttribute('data-no-score'))setGrossScore(NO_SCORE)});
 function updateTestMode(){const button=$('#toggleHoleClosed'),status=$('#testModeStatus');button.textContent=testMode?'AUTO':'Hole closed';button.classList.toggle('auto-score',testMode);button.classList.toggle('active',!testMode&&holeClosed());button.setAttribute('aria-label',testMode?'Automatically score every player on this hole':'Toggle hole closed');if(status)status.textContent=testMode?'AUTO ENABLED':''}
@@ -424,10 +431,10 @@ function cancelTestModeHold(){clearTimeout(testModeTimer);testModeTimer=null}
 settingsTestLogo.addEventListener('pointerdown',event=>{event.preventDefault();cancelTestModeHold();testModeTimer=setTimeout(()=>{testMode=!testMode;updateTestMode();navigator.vibrate?.(60);testModeTimer=null},2000)});
 ['pointerup','pointercancel'].forEach(type=>settingsTestLogo.addEventListener(type,cancelTestModeHold));
 settingsTestLogo.addEventListener('contextmenu',event=>event.preventDefault());settingsTestLogo.addEventListener('dragstart',event=>event.preventDefault());
-$('#toggleHoleClosed').addEventListener('click',()=>{if(testMode){autoScoreHole();return}const close=!holeClosed();state.scores.forEach(scores=>{if(close)scores[state.hole]=NO_SCORE;else if(scores[state.hole]===NO_SCORE)scores[state.hole]=null});selectedPlayer=0;$('#scoreError').textContent='';renderScore();save()});
+$('#toggleHoleClosed').addEventListener('click',()=>{if(testMode){autoScoreHole();return}const wasComplete=holeComplete(),close=!holeClosed();state.scores.forEach(scores=>{if(close)scores[state.hole]=NO_SCORE;else if(scores[state.hole]===NO_SCORE)scores[state.hole]=null});selectedPlayer=0;$('#scoreError').textContent='';renderScore();save();if(close)autoAdvanceCompletedHole(wasComplete)});
 $('#closeScoreEntry').addEventListener('click',closeScoreEntry);scoreEntryDialog.addEventListener('cancel',event=>{event.preventDefault();closeScoreEntry()});
 function blockedAdvance(){if(holeComplete())return false;$('#scoreError').textContent='Enter a score for every player before moving to the next hole.';return true}
-function moveHole(change){if(change>0&&blockedAdvance())return;if(change>0&&state.hole===17){showSummary();return}state.hole=Math.max(0,Math.min(17,state.hole+change));selectedPlayer=Math.max(0,state.scores.findIndex(scores=>scores[state.hole]==null));$('#scoreError').textContent='';renderScore();save()}
+function moveHole(change){cancelAutoAdvanceCountdown();if(change>0&&blockedAdvance())return;if(change>0&&state.hole===17){showSummary();return}state.hole=Math.max(0,Math.min(17,state.hole+change));selectedPlayer=Math.max(0,state.scores.findIndex(scores=>scores[state.hole]==null));$('#scoreError').textContent='';renderScore();save()}
 $('#holeDots').addEventListener('click',event=>{const button=event.target.closest('[data-hole]');if(!button)return;const target=Number(button.dataset.hole);if(target>firstIncompleteHole()){blockedAdvance();return}state.hole=target;selectedPlayer=Math.max(0,state.scores.findIndex(scores=>scores[state.hole]==null));$('#scoreError').textContent='';renderScore();save()});
 $('#scoreScreen').addEventListener('touchstart',event=>{const touch=event.touches[0];swipeStartX=touch.clientX;swipeStartY=touch.clientY},{passive:true});
 $('#scoreScreen').addEventListener('touchend',event=>{const touch=event.changedTouches[0],dx=touch.clientX-swipeStartX,dy=touch.clientY-swipeStartY;if(Math.abs(dx)<55||Math.abs(dx)<Math.abs(dy)*1.3)return;suppressPlayerClickUntil=Date.now()+500;if(dx<0)moveHole(1);else if(state.hole>0)moveHole(-1)},{passive:true});
@@ -437,8 +444,9 @@ $('#startNewRound').addEventListener('click',()=>$('#finishDialog').showModal())
 $('#sharePdf').addEventListener('click',shareScorecardPdf);
 function clearRound(){localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(LEGACY_STORAGE_KEY);location.reload()}
 $('#confirmFinish').addEventListener('click',clearRound);
-$('#openSettings').addEventListener('click',()=>$('#settingsDialog').showModal());
+$('#openSettings').addEventListener('click',()=>{$('#autoAdvanceSetting').checked=autoAdvance;$('#settingsDialog').showModal()});
 $('#closeSettings').addEventListener('click',()=>$('#settingsDialog').close());
+$('#autoAdvanceSetting').addEventListener('change',event=>{autoAdvance=event.target.checked;cancelAutoAdvanceCountdown();try{localStorage.setItem(AUTO_ADVANCE_KEY,String(autoAdvance))}catch{}if(state.scores.length&&!$('#scoreScreen').classList.contains('hidden'))renderAutoAdvanceBar()});
 $('#openAbandonScoring').addEventListener('click',()=>{$('#settingsDialog').close();$('#abandonDialog').showModal()});
 $('#cancelAbandon').addEventListener('click',()=>{$('#abandonDialog').close();$('#settingsDialog').showModal()});
 $('#confirmAbandon').addEventListener('click',clearRound);
