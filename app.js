@@ -40,6 +40,7 @@ function playingHandicaps(){
     const teamHandicap=(first,second)=>state.handicapMode==='equal'?Math.round((first+second)*.5):Math.round(Math.min(first,second)*.6+Math.max(first,second)*.4),teamA=teamHandicap(courseHandicaps[0],courseHandicaps[1]),teamB=teamHandicap(courseHandicaps[2],courseHandicaps[3]),lowest=Math.min(teamA,teamB);
     return [teamA-lowest,teamA-lowest,teamB-lowest,teamB-lowest];
   }
+  if(state.format==='stableford'&&state.handicapMode==='differential'){const lowest=Math.min(...courseHandicaps);return courseHandicaps.map(handicap=>handicap-lowest)}
   if(state.format==='stableford'||state.format==='fourtwenty'||state.handicapMode==='full')return courseHandicaps;
   const lowest=Math.min(...courseHandicaps),allowance=state.format==='fourball'?0.9:1;
   return courseHandicaps.map(handicap=>Math.round((handicap-lowest)*allowance));
@@ -294,7 +295,7 @@ function applyRememberedPlayer(slot){
 }
 function queueRememberedPlayerSave(slot){clearTimeout(playerSaveTimers.get(slot));playerSaveTimers.set(slot,setTimeout(()=>{const player=state.players[slot],name=player.name.trim(),whs=player.index===''?null:Number(player.index);if(!name||whs==null||!Number.isFinite(whs)||whs<0||whs>36){playerSaveTimers.delete(slot);return}const players=storedPlayers(),match=players.findIndex(item=>item.name.toLocaleLowerCase()===name.toLocaleLowerCase()),saved={name,whs,updatedAt:Date.now()};if(match>=0)players.splice(match,1);players.unshift(saved);localStorage.setItem(PLAYER_MEMORY_KEY,JSON.stringify(players.slice(0,100)));playerSaveTimers.delete(slot)},500))}
 const HANDICAP_OPTIONS={
-  stableford:[{mode:'recommended',title:'Standard · 100% Course Handicap',description:'Each player receives their full Course Handicap, with strokes applied by stroke index.'}],
+  stableford:[{mode:'recommended',title:'Standard · 100% Course Handicap',description:'Each player receives their full Course Handicap, with strokes applied by stroke index.'},{mode:'differential',title:'Differential · 100% from lowest',description:'The lowest-handicap player plays from scratch. Every other player receives the full difference between their Course Handicap and the lowest Course Handicap.'}],
   fourball:[{mode:'recommended',title:'Recommended · 90% from lowest',description:'The lowest player plays from zero. Every other player receives 90% of the Course Handicap difference.'},{mode:'full',title:'Full handicap · 100% · no differential',description:'Each player uses their full Course Handicap without reducing against the lowest player.'}],
   greensomes:[{mode:'recommended',title:'Greensomes · 60/40',description:'Each team receives 60% of the lower plus 40% of the higher Course Handicap. In match play, use the difference between team handicaps.'},{mode:'equal',title:'Combined · 50/50',description:'Each team receives 50% of the partners’ combined Course Handicaps, following the common foursomes allowance.'}],
   matchplay:[{mode:'recommended',title:'Recommended · 100% from lowest',description:'The lowest player plays from zero. The other player receives the full Course Handicap difference.'},{mode:'full',title:'Full handicap · 100% · no differential',description:'Both players use their full Course Handicap without reducing against the lowest player.'}],
