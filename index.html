@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="caddiecard-icon.png">
   <meta name="apple-mobile-web-app-title" content="CaddieCard">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css?v=72">
+  <link rel="stylesheet" href="styles.css?v=73">
 </head>
 <body>
   <div class="app-splash" id="appSplash" role="status" aria-label="CaddieCard is loading">
@@ -112,7 +112,6 @@
         <button type="button" id="changeHandicapRule">Change</button>
       </section>
       <div id="playerRows" class="player-rows"></div>
-      <datalist id="rememberedNames"></datalist>
       <p class="validation" id="playerError"></p>
       <div class="bottom-actions"><button class="secondary" id="backToCourse">Back</button><button class="primary" id="startRound">Start round</button></div>
     </section>
@@ -169,8 +168,20 @@
 
   <dialog id="settingsDialog" class="settings-dialog">
     <div class="settings-dialog-head"><img id="settingsTestLogo" src="caddiecard-icon.png" alt="" draggable="false"><h2>Settings</h2><span id="testModeStatus" class="test-mode-status" aria-live="polite"></span></div>
-    <div class="settings-menu"><button class="settings-menu-button" id="openProfileSettings" type="button">Your Name &amp; WHS</button><label class="auto-advance-setting"><strong>Auto hole advance</strong><input id="autoAdvanceSetting" type="checkbox" role="switch"></label><button class="settings-menu-button danger-menu-button" id="openAbandonScoring" type="button">Abandon Scoring</button></div>
+    <div class="settings-menu"><button class="settings-menu-button" id="openProfileSettings" type="button">Your Name &amp; WHS</button><button class="settings-menu-button" id="openFriends" type="button">Friends</button><label class="auto-advance-setting"><strong>Auto hole advance</strong><input id="autoAdvanceSetting" type="checkbox" role="switch"></label><button class="settings-menu-button danger-menu-button" id="openAbandonScoring" type="button">Abandon Scoring</button></div>
     <button class="secondary settings-close" id="closeSettings" type="button">Close</button>
+  </dialog>
+
+  <dialog id="friendsDialog" class="friends-dialog">
+    <header class="friends-head"><h2>Friends</h2><div class="friends-head-actions"><button id="addFriend" type="button" aria-label="Add friend"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-shadow" d="M12 5v14M5 12h14"/><path class="icon-line" d="M12 5v14M5 12h14"/><path class="icon-shine" d="M12 5v6M5 12h6"/></svg></button><button id="closeFriends" type="button" aria-label="Close friends"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-shadow" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-line" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-shine" d="m6.8 6.3 4.8 4.8m5.6-4.8-4.8 4.8"/></svg></button></div></header>
+    <div id="friendsList" class="friends-list"></div><p id="friendsEmpty" class="friends-empty">No friends added yet. Tap + to add one.</p>
+  </dialog>
+  <dialog id="friendEditorDialog" class="settings-dialog friend-editor-dialog">
+    <h2 id="friendEditorTitle">Add friend</h2><div class="friend-fields"><label>Name<input id="friendName" maxlength="40" autocomplete="off"></label><label>WHS Handicap<input id="friendWhs" type="number" inputmode="decimal" min="0" max="36" step="0.1"></label></div><p class="validation" id="friendEditorError"></p>
+    <div class="bottom-actions"><button class="secondary" id="cancelFriendEditor" type="button">Cancel</button><button class="primary" id="saveFriend" type="button">Save</button></div>
+  </dialog>
+  <dialog id="friendPickerDialog" class="settings-dialog friend-picker-dialog">
+    <div class="friend-picker-head"><h2>Select player</h2><button id="closeFriendPicker" type="button" aria-label="Close player list"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-shadow" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-line" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-shine" d="m6.8 6.3 4.8 4.8m5.6-4.8-4.8 4.8"/></svg></button></div><div id="friendPickerList" class="friend-picker-list"></div><p id="friendPickerEmpty" class="friends-empty">No saved players. Add friends from Settings first.</p>
   </dialog>
 
   <dialog id="profileSettingsDialog" class="settings-dialog">
@@ -189,7 +200,7 @@
 
   <dialog id="scoreEntryDialog" class="score-entry-dialog">
     <div class="score-entry-head">
-      <button class="score-entry-close" id="closeScoreEntry" type="button" aria-label="Close score entry">×</button>
+      <button class="score-entry-close" id="closeScoreEntry" type="button" aria-label="Close score entry"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="icon-shadow" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-line" d="m6.5 6.5 11 11m0-11-11 11"/><path class="icon-shine" d="m6.8 6.3 4.8 4.8m5.6-4.8-4.8 4.8"/></svg></button>
       <div class="score-entry-title" id="keypadPlayer">PLAYER</div>
       <div class="score-entry-meta" id="scoreEntryHole">HOLE 1 · PAR 4</div>
       <div class="team-score-tabs hidden" id="teamScoreTabs"></div>
@@ -203,6 +214,6 @@
     </div>
   </dialog>
 
-<script src="app.js?v=72"></script>
+<script src="app.js?v=73"></script>
 </body>
 </html>
