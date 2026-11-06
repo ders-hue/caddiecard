@@ -18,7 +18,7 @@ const LEGACY_STORAGE_KEY='scoring-app-one-off-v1';
 const SETTINGS_KEY='caddiecard-settings-v1';
 const FRIENDS_KEY='caddiecard-friends-v1';
 const AUTO_ADVANCE_KEY='caddiecard-auto-hole-advance-v1';
-const APP_VERSION='2026.11.06.4';
+const APP_VERSION='2026.11.06.5';
 const UPDATE_SNOOZE_KEY='caddiecard-update-snooze-v1';
 const UPDATE_CHECK_INTERVAL=5*60*1000;
 const UPDATE_SNOOZE_INTERVAL=15*60*1000;
@@ -375,11 +375,12 @@ $('#playerRows').addEventListener('input',event=>{
   else if(event.target.matches('[data-player-index]')){const value=Number(event.target.value);if(event.target.value!==''&&(!Number.isFinite(value)||value<0||value>36)){event.target.value='';player.index='';player.courseHandicap=null}else{player.index=event.target.value;player.courseHandicap=event.target.value===''?null:courseHandicap(value);if(player.courseHandicap<0||player.courseHandicap>36)player.courseHandicap=null}document.querySelector(`[data-player-course="${i}"]`).value=player.courseHandicap??''}
   else{const value=Number(event.target.value);if(event.target.value!==''&&(!Number.isInteger(value)||value<0||value>36)){event.target.value='';player.courseHandicap=null}else player.courseHandicap=event.target.value===''?null:value}$('#playerError').textContent='';save();
 });
+$('#playerRows').addEventListener('change',event=>{if(!event.target.matches('[data-player-index]'))return;const player=state.players[Number(event.target.dataset.playerIndex)],whs=Number(player?.index);if(!player?.friendId||player.index===''||!Number.isFinite(whs)||whs<0||whs>36)return;const items=friends(),friend=items.find(item=>item.id===player.friendId);if(!friend)return;friend.whs=whs;saveFriends(items)});
 let friendPickerSlot=null;
 function renderFriendPicker(){const items=sortedFriends();$('#friendPickerList').innerHTML=items.map(item=>`<button type="button" data-select-friend="${escapeHtml(item.id)}">${escapeHtml(surnameFirst(item.name))}</button>`).join('');$('#friendPickerEmpty').classList.toggle('hidden',items.length>0)}
 $('#playerRows').addEventListener('click',event=>{if(event.target.matches('[data-player-course]')){event.target.select();return}const picker=event.target.closest('[data-pick-friend]');if(picker){friendPickerSlot=Number(picker.dataset.pickFriend);renderFriendPicker();$('#friendPickerDialog').showModal();return}const button=event.target.closest('[data-clear-player]');if(!button)return;const i=Number(button.dataset.clearPlayer);state.players[i]=emptyPlayer(i===0?settingsPlayerName():'');renderPlayers();save()});
 $('#closeFriendPicker').addEventListener('click',()=>$('#friendPickerDialog').close());
-$('#friendPickerList').addEventListener('click',event=>{const button=event.target.closest('[data-select-friend]');if(!button||friendPickerSlot==null)return;const friend=friends().find(item=>item.id===button.dataset.selectFriend);if(!friend)return;const whs=Number(friend.whs),course=courseHandicap(whs);state.players[friendPickerSlot]={name:friend.name,index:String(friend.whs),courseHandicap:course>=0&&course<=36?course:null};$('#friendPickerDialog').close();renderPlayers();save()});
+$('#friendPickerList').addEventListener('click',event=>{const button=event.target.closest('[data-select-friend]');if(!button||friendPickerSlot==null)return;const friend=friends().find(item=>item.id===button.dataset.selectFriend);if(!friend)return;const whs=Number(friend.whs),course=courseHandicap(whs);state.players[friendPickerSlot]={name:friend.name,index:String(friend.whs),courseHandicap:course>=0&&course<=36?course:null,friendId:friend.id};$('#friendPickerDialog').close();renderPlayers();save()});
 $('#backToFormat').addEventListener('click',()=>showScreen('format'));
 $('#handicapChoices').addEventListener('click',event=>{const button=event.target.closest('[data-handicap-mode]');if(!button)return;state.handicapMode=button.dataset.handicapMode;renderPlayers();showScreen('players');save()});
 $('#changeHandicapRule').addEventListener('click',()=>{renderHandicapChoices();showScreen('handicap')});
